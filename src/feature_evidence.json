@@ -1,0 +1,25 @@
+{
+  "kind": "feature_evidence_report",
+  "features": [
+    {
+      "featureId": "feature-update-the-web-bluetooth-navigator-bluetooth-requestdevice-options-used-for-eye-r-so-the-scan-filter-targets-the-heart-rate-service-0x180d-rather-than-a-uart-based-device-name-e-g-uart-service-and-nordic-uart-optionalservices-6e400001-b5a3-f393-e0a9-e50e24dcca9e-ensure-the-filter-includes-service-0x180d-so-the-eye-r-device-can-be-discovered-when-it-advertises-heart-rate-and-keep-the-rest-of-the-connection-flow-working-with-gatt-notifications-on-service-0x180d",
+      "featureTitle": "Update the Web Bluetooth `navigator.bluetooth.requestDevice` options used for Eye-R so the scan/filter targets the Heart Rate service (0x180d) rather than a UART-based device name (e.g., \"UART Service\") and Nordic UART optionalServices (\"6e400001-b5a3-f393-e0a9-e50e24dcca9e\"). Ensure the filter includes service 0x180d so the Eye-R device can be discovered when it advertises Heart Rate, and keep the rest of the connection flow working with GATT notifications on service 0x180d.",
+      "files": [
+        "frontend/src/hooks/useEyeRBluetooth.ts",
+        "frontend/src/pages/DeviceConnection.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-14"
+      ],
+      "confidence": "high"
+    }
+  ]
+}

@@ -1,0 +1,171 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 11,
+  "summary": "Application that generates a personalized sleeping schedule using blink rate data from an IR sensor on ESP32-C3-powered glasses, recording blink rates and vibration sensor triggers and analyzing them to produce the schedule.",
+  "architectural_notes": [
+    "Hardware data source: ESP32-C3-powered glasses with IR sensor for blink rate and vibration sensor for movement/trigger events.",
+    "Frontend will support direct ESP32-C3 smart-glasses connection via Web Bluetooth: requestDevice filter name 'Eye-R', connect to GATT, subscribe to notifications on service UUID 180D (and a notifying characteristic), and route received values through onBlinkRateChange for live monitoring + session storage.",
+    "Web Bluetooth UUIDs must be provided as valid UUID aliases (e.g., \"0x180d\") or full lowercase 128-bit UUID strings (e.g., \"0000180d-0000-1000-8000-00805f9b34fb\"); the string \"180D\" is invalid and will throw an Invalid Service name error in requestDevice filters/optionalServices.",
+    "User reports current Web Bluetooth requestDevice code filters by advertised name 'UART Service' and includes optionalServices '6e400001-b5a3-f393-e0a9-e50e24dcca9e' (Nordic UART), but blink-rate notifications are expected on Heart Rate service 0x180d; device filter/optionalServices likely need alignment to Heart Rate service and the actual advertised device name."
+  ],
+  "known_issues": [
+    "Web Bluetooth error: using \"180D\" as a service identifier in navigator.bluetooth.requestDevice causes \"Invalid Service name\"; must use \"0x180d\" or full lowercase UUID.",
+    "Potential mismatch between expected BLE device/service (Heart Rate 0x180d, device name 'Eye-R') and current frontend requestDevice filter (name: 'UART Service') + optionalServices (Nordic UART UUID 6e400001-b5a3-f393-e0a9-e50e24dcca9e), which may prevent discovery/connection or notification subscription."
+  ],
+  "isFixRequest": true,
+  "existing_features": [
+    {
+      "id": "feature-build-frontend-screens-to-1-connect-authenticate-the-user-using-internet-identity-2-register-select-a-device-identifier-3-view-collected-blink-rate-and-vibration-trigger-history-and-4-generate-and-view-the-personalized-sleep-schedule-produced-by-the-backend-analysis",
+      "title": "Build frontend screens to (1) connect/authenticate the user (using Internet Identity), (2) register/select a device identifier, (3) view collected blink-rate and vibration-trigger history, and (4) generate and view the personalized sleep schedule produced by the backend analysis.",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-simple-consistent-visual-theme-for-the-app-colors-typography-spacing-and-component-styling-suitable-for-a-sleep-health-dashboard-apply-it-across-all-new-pages-and-components",
+      "title": "Add a simple, consistent visual theme for the app (colors, typography, spacing, and component styling) suitable for a sleep/health dashboard; apply it across all new pages and components.",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-frontend-guidance-for-esp32-c3-integration-provide-an-english-device-data-ingestion-section-that-documents-the-required-payload-fields-deviceid-timestamp-blink-rate-vibration-trigger-and-shows-example-requests-compatible-with-the-backend-methods",
+      "title": "Add frontend guidance for ESP32-C3 integration: provide an English “Device Data Ingestion” section that documents the required payload fields (deviceId, timestamp, blink rate, vibration trigger) and shows example requests compatible with the backend methods.",
+      "reqIds": [
+        "REQ-6"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-generate-and-include-static-brand-hero-imagery-for-the-app-and-render-it-in-the-ui-as-static-assets-under-frontend-public-assets-generated-do-not-serve-images-through-the-backend",
+      "title": "Generate and include static brand/hero imagery for the app, and render it in the UI as static assets under frontend/public/assets/generated (do not serve images through the backend).",
+      "reqIds": [
+        "REQ-7"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-connect-device-button-to-the-existing-device-connection-page-frontend-src-pages-deviceconnection-tsx-that-uses-the-web-bluetooth-api-to-scan-for-and-connect-to-a-bluetooth-device-named-eye-r",
+      "title": "Add a \"Connect Device\" button to the existing Device Connection page (frontend/src/pages/DeviceConnection.tsx) that uses the Web Bluetooth API to scan for and connect to a Bluetooth device named \"Eye-R\".",
+      "reqIds": [
+        "REQ-8"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-after-connecting-to-the-eye-r-device-subscribe-to-gatt-notifications-on-service-uuid-180d-and-process-incoming-notifications-as-blink-rate-updates",
+      "title": "After connecting to the \"Eye-R\" device, subscribe to GATT notifications on Service UUID \"180D\" and process incoming notifications as blink-rate updates.",
+      "reqIds": [
+        "REQ-9"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-implement-onblinkratechange-handling-so-that-each-received-bluetooth-notification-blink-rate-value-updates-a-live-latest-blink-rate-display-and-stores-the-reading-by-calling-the-existing-backend-method-recordblinkrate-for-the-currently-selected-deviceid",
+      "title": "Implement onBlinkRateChange handling so that each received Bluetooth notification (blink-rate value) updates a live \"Latest Blink Rate\" display and stores the reading by calling the existing backend method recordBlinkRate for the currently selected deviceId.",
+      "reqIds": [
+        "REQ-10"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-web-bluetooth-connection-logic-to-use-a-valid-heart-rate-service-identifier-instead-of-the-invalid-string-180d-so-that-navigator-bluetooth-requestdevice-no-longer-throws-invalid-service-name",
+      "title": "Fix the Web Bluetooth connection logic to use a valid Heart Rate Service identifier instead of the invalid string \"180D\" so that navigator.bluetooth.requestDevice no longer throws \"Invalid Service name\".",
+      "reqIds": [
+        "REQ-11"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-fix-the-heart-rate-measurement-characteristic-identifier-usage-to-ensure-it-is-provided-in-a-valid-bluetoothcharacteristicuuid-format-and-matches-the-updated-service-uuid-approach-e-g-full-lowercase-uuid-00002a37-0000-1000-8000-00805f9b34fb-or-a-valid-alias-format",
+      "title": "Fix the Heart Rate Measurement characteristic identifier usage to ensure it is provided in a valid BluetoothCharacteristicUUID format and matches the updated service-UUID approach (e.g., full lowercase UUID \"00002a37-0000-1000-8000-00805f9b34fb\" or a valid alias format).",
+      "reqIds": [
+        "REQ-12"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-any-user-facing-bluetooth-copy-on-the-device-connection-page-to-reference-the-heart-rate-service-using-a-valid-representation-e-g-0x180d-or-the-full-uuid-rather-than-the-ambiguous-string-180d",
+      "title": "Update any user-facing Bluetooth copy on the Device Connection page to reference the Heart Rate service using a valid representation (e.g., \"0x180d\" or the full UUID) rather than the ambiguous string \"180D\".",
+      "reqIds": [
+        "REQ-13"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-the-web-bluetooth-navigator-bluetooth-requestdevice-options-used-for-eye-r-so-the-scan-filter-targets-the-heart-rate-service-0x180d-rather-than-a-uart-based-device-name-e-g-uart-service-and-nordic-uart-optionalservices-6e400001-b5a3-f393-e0a9-e50e24dcca9e-ensure-the-filter-includes-service-0x180d-so-the-eye-r-device-can-be-discovered-when-it-advertises-heart-rate-and-keep-the-rest-of-the-connection-flow-working-with-gatt-notifications-on-service-0x180d",
+      "title": "Update the Web Bluetooth `navigator.bluetooth.requestDevice` options used for Eye-R so the scan/filter targets the Heart Rate service (0x180d) rather than a UART-based device name (e.g., \"UART Service\") and Nordic UART optionalServices (\"6e400001-b5a3-f393-e0a9-e50e24dcca9e\"). Ensure the filter includes service 0x180d so the Eye-R device can be discovered when it advertises Heart Rate, and keep the rest of the connection flow working with GATT notifications on service 0x180d.",
+      "reqIds": [
+        "REQ-14"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Generate a personalized sleeping schedule based on analyzed blink rate and vibration trigger data from smart glasses.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Integrate IR blink-rate sensing on ESP32-C3 glasses and transmit blink data to the application.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Record and store blink rates over time for later analysis.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-4",
+      "summary": "Record and store vibration sensor trigger counts/events over time for later analysis.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-5",
+      "summary": "Analyze collected blink-rate and vibration-trigger data to derive sleep-related insights used for schedule generation.",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-6",
+      "summary": "Create backend data models and storage for sensor telemetry from smart glasses, including blink-rate measurements from an IR sensor and vibration sensor trigger events, each with timestamps and an associated device identifier (and, if available, a user principal when authenticated).",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-7",
+      "summary": "Expose backend update/query APIs to ingest and retrieve smart-glasses telemetry so an ESP32-C3 (or a companion gateway) can submit blink-rate and vibration-trigger data and the frontend can fetch it for visualization and analysis.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-8",
+      "summary": "Implement backend analysis logic that uses collected blink-rate and vibration-trigger data to derive sleep-related insights and generate a personalized sleep schedule recommendation (e.g., suggested bedtime/wake time window) from a selected time window of data.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-9",
+      "summary": "Add Web Bluetooth device connection in the frontend: a “Connect Device” button that scans for a device named “Eye-R”, connects via GATT, subscribes to notifications on Service UUID 180D (and appropriate characteristic), and on each notification calls onBlinkRateChange(value) to update the live monitor and store session data.",
+      "reqIds": [],
+      "status": "pending"
+    }
+  ],
+  "projectName": "Personalized sleep schedule app from ESP32-C3 smart-glasses blink + vibration sensor data",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}

@@ -1,0 +1,51 @@
+{
+  "kind": "build_request",
+  "title": "Update Web Bluetooth requestDevice filter to target Heart Rate service (0x180d) instead of UART Service",
+  "priority": "normal",
+  "requirements": [
+    {
+      "id": "REQ-14",
+      "text": "Update the Web Bluetooth `navigator.bluetooth.requestDevice` options used for Eye-R so the scan/filter targets the Heart Rate service (0x180d) rather than a UART-based device name (e.g., \"UART Service\") and Nordic UART optionalServices (\"6e400001-b5a3-f393-e0a9-e50e24dcca9e\"). Ensure the filter includes service 0x180d so the Eye-R device can be discovered when it advertises Heart Rate, and keep the rest of the connection flow working with GATT notifications on service 0x180d.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "Blink rate data will be received via GATT notifications on service 0x180d (Heart Rate)",
+          "Currently, it likely looks like this: filters: [{ services: [0x180d] }]",
+          "filters: [{ name: 'UART Service' }] ... optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']"
+        ]
+      },
+      "acceptanceCriteria": [
+        "When clicking \"Connect Device\" on the Device Connection page, the browser’s device picker shows devices advertising the Heart Rate service (0x180d), without relying on the name \"UART Service\".",
+        "The requestDevice call no longer uses the Nordic UART optionalServices UUID \"6e400001-b5a3-f393-e0a9-e50e24dcca9e\" for the Eye-R connection path.",
+        "After selecting a compatible device, the app connects and continues subscribing to notifications for blink rate data via Heart Rate service 0x180d, as before."
+      ]
+    }
+  ],
+  "constraints": [
+    "Use English for all user-facing text.",
+    "Do not edit files under frontend/src/components/ui (read-only).",
+    "Do not modify Internet Identity hooks or other immutable paths listed in SYSTEM_CONTEXT."
+  ],
+  "nonGoals": [
+    "No backend/canister API changes.",
+    "No changes to blink-rate parsing logic beyond what is required to adjust requestDevice filtering.",
+    "No addition of new Bluetooth services/protocols (keep using Heart Rate service 0x180d for blink-rate notifications)."
+  ],
+  "imageRequirements": {
+    "required": [],
+    "edits": []
+  },
+  "userProfileUpdate": {
+    "goalsToAdd": [],
+    "goalsToRemove": [],
+    "preferencesToAdd": [],
+    "preferencesToRemove": [],
+    "miscToAdd": [],
+    "miscToRemove": [],
+    "fieldsToSet": {},
+    "fieldsToDelete": []
+  }
+}

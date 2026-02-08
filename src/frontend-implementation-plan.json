@@ -1,0 +1,28 @@
+{
+  "kind": "implementation_plan",
+  "version": "1.0",
+  "title": "Update Eye-R Web Bluetooth device filter to Heart Rate service (0x180d)",
+  "requirements": [
+    {
+      "id": "REQ-14",
+      "summary": "Change Web Bluetooth requestDevice filtering to discover Eye-R devices advertising the Heart Rate service (0x180d) and remove any UART/Nordic UART optional services while keeping the existing 0x180d notification flow working.",
+      "acceptanceCriteria": [
+        "When clicking \"Connect Device\" on the Device Connection page, the browser’s device picker shows devices advertising the Heart Rate service (0x180d), without relying on the name \"UART Service\".",
+        "The requestDevice call no longer uses the Nordic UART optionalServices UUID \"6e400001-b5a3-f393-e0a9-e50e24dcca9e\" for the Eye-R connection path.",
+        "After selecting a compatible device, the app connects and continues subscribing to notifications for blink rate data via Heart Rate service 0x180d, as before."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useEyeRBluetooth.ts",
+          "operation": "modify",
+          "description": "Update navigator.bluetooth.requestDevice options to use a filter that targets the Heart Rate service (SERVICE_UUID = 0x180d) rather than filtering by device name, and ensure no Nordic UART optional service UUID is referenced. Keep the existing GATT connection, service discovery (0x180d), and notification subscription flow intact."
+        },
+        {
+          "path": "frontend/src/pages/DeviceConnection.tsx",
+          "operation": "modify",
+          "description": "Update the Bluetooth Connection helper text so it no longer instructs users that the device must be advertising with the name \"Eye-R\", and instead reflects that discovery is based on advertising the Heart Rate service (0x180d)."
+        }
+      ]
+    }
+  ]
+}

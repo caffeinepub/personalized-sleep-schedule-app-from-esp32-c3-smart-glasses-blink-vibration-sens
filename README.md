@@ -1,2 +1,3 @@
-# personalized-sleep-schedule-app-from-esp32-c3-smart-glasses-blink-vibration-sens
-Exported from Caffeine project: Personalized sleep schedule app from ESP32-C3 smart-glasses blink + vibration sensor data
+## 
+
+To run app build and run docker image: `docker build -t app . docker run -it --network host app`

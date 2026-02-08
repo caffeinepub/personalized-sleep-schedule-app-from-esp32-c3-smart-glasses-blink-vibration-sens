@@ -1,0 +1,23 @@
+{
+  "kind": "spec_vs_diff_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-07T10:13:19.548Z",
+  "summary": "REQ-14 appears implemented: the Eye-R Web Bluetooth requestDevice call is updated to filter by the Heart Rate service (0x180d) and no longer relies on a UART-based name/optionalServices UUID, while continuing to use Heart Rate service/characteristic for notifications.",
+  "missing_requirements": [],
+  "hallucinated_features": [
+    {
+      "description": "Added fallback logic to discover “any notifying characteristic” if the standard Heart Rate Measurement characteristic (0x2a37) is not found.",
+      "reason": "REQ-14 only asks to adjust requestDevice filtering away from UART and keep the existing Heart Rate (0x180d) notification flow working; it does not request expanding characteristic discovery behavior.",
+      "evidence": [
+        "frontend/src/hooks/useEyeRBluetooth.ts"
+      ]
+    }
+  ],
+  "confidence": 0.73,
+  "changed_files": [
+    "frontend-file-summaries.txt",
+    "frontend/src/hooks/useEyeRBluetooth.ts",
+    "frontend/src/pages/DeviceConnection.tsx",
+    "project_state.json"
+  ]
+}
