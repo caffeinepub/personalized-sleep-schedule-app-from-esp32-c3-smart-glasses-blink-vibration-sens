@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { normalizeUUID, formatUUID } from '../utils/bleUuid';
 import { 
   NUS_SERVICE_UUID, 
@@ -11,12 +11,25 @@ import {
 
 type ConnectionState = 'disconnected' | 'connecting' | 'connected';
 
+interface BluetoothContextValue {
+  connectionState: ConnectionState;
+  error: string | null;
+  connect: (options: ConnectOptions) => Promise<void>;
+  disconnect: () => void;
+  isSupported: boolean;
+  onBlinkRateChange?: (blinkRate: number) => void;
+  setOnBlinkRateChange: (callback: (blinkRate: number) => void) => void;
+  latestReading: string | null;
+}
+
 interface ConnectOptions {
   serviceUUID?: string | number;
   characteristicUUID?: string | number;
   autoDiscover?: boolean;
   useCustomProfile?: boolean;
 }
+
+const BluetoothContext = createContext<BluetoothContextValue | undefined>(undefined);
 
 const MIN_CONNECTION_INTERVAL_MS = 2000;
 const MTU_EXCHANGE_DELAY_MS = 500;
@@ -29,17 +42,17 @@ function toServiceString(uuid: string | number): string {
   return uuid;
 }
 
-export function useEyeRBluetooth() {
+export function BluetoothProvider({ children }: { children: React.ReactNode }) {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [error, setError] = useState<string | null>(null);
   const [isSupported] = useState(() => 'bluetooth' in navigator && navigator.bluetooth !== undefined);
   const [latestReading, setLatestReading] = useState<string | null>(null);
-  const [latestBlinkRate, setLatestBlinkRate] = useState<number | null>(null);
   
   const deviceRef = useRef<BluetoothDevice | null>(null);
   const characteristicRef = useRef<BluetoothRemoteGATTCharacteristic | null>(null);
   const serverRef = useRef<BluetoothRemoteGATTServer | null>(null);
   const disconnectListenerRef = useRef<((event: Event) => void) | null>(null);
+  const onBlinkRateChangeRef = useRef<((blinkRate: number) => void) | undefined>(undefined);
   const notificationsEnabledRef = useRef<boolean>(false);
   
   const isConnectingRef = useRef(false);
@@ -47,48 +60,40 @@ export function useEyeRBluetooth() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const attemptTokenRef = useRef<number>(0);
 
+  const setOnBlinkRateChange = useCallback((callback: (blinkRate: number) => void) => {
+    onBlinkRateChangeRef.current = callback;
+  }, []);
+
   const handleCharacteristicValueChanged = useCallback((event: Event) => {
     const target = event.target as BluetoothRemoteGATTCharacteristic;
     const value = target.value;
     
     if (!value) return;
 
-    // Decode raw data using TextDecoder
     let decodedText = '';
     try {
       const decoder = new TextDecoder('utf-8');
       decodedText = decoder.decode(value);
       setLatestReading(decodedText.trim());
-      console.log(`Raw notification data: "${decodedText.trim()}"`);
     } catch (err) {
       console.warn('Failed to decode as UTF-8 text:', err);
     }
 
-    // Parse blink rate from decoded text
     let blinkRate: number | null = null;
     if (decodedText) {
       blinkRate = parseBlinkRateFromText(decodedText);
-      
-      if (blinkRate !== null) {
-        console.log(`Parsed blink rate: ${blinkRate}`);
-        setLatestBlinkRate(blinkRate);
-      }
     }
 
-    // Fallback: Try NUS DataView parsing
     if (blinkRate === null) {
       blinkRate = parseNusBlinkRate(value);
-      if (blinkRate !== null) {
-        setLatestBlinkRate(blinkRate);
-      }
     }
     
-    // Fallback: Try Heart Rate format
     if (blinkRate === null) {
       blinkRate = parseHeartRateBlinkRate(value);
-      if (blinkRate !== null) {
-        setLatestBlinkRate(blinkRate);
-      }
+    }
+
+    if (blinkRate !== null && onBlinkRateChangeRef.current) {
+      onBlinkRateChangeRef.current(blinkRate);
     }
   }, []);
 
@@ -138,10 +143,8 @@ export function useEyeRBluetooth() {
     isConnectingRef.current = false;
     setConnectionState('disconnected');
     setLatestReading(null);
-    setLatestBlinkRate(null);
   }, [cleanupConnection]);
 
-  // Monitor GATT connection status
   useEffect(() => {
     const syncInterval = setInterval(() => {
       if (deviceRef.current && serverRef.current) {
@@ -193,7 +196,7 @@ export function useEyeRBluetooth() {
         }
       }
       
-      throw new Error('No notify-capable characteristic found on this device.');
+      throw new Error('No notify-capable characteristic found on this device. Please ensure your ESP32 firmware exposes at least one characteristic with notify property enabled.');
     } catch (err: any) {
       if (err.message?.includes('cancelled')) {
         throw err;
@@ -201,7 +204,7 @@ export function useEyeRBluetooth() {
       if (err.message?.includes('No notify-capable characteristic')) {
         throw err;
       }
-      throw new Error(`Failed to discover services and characteristics: ${err.message || 'Unknown error'}`);
+      throw new Error(`Failed to discover services and characteristics: ${err.message || 'Unknown error'}. Please check your device firmware.`);
     }
   };
 
@@ -215,7 +218,7 @@ export function useEyeRBluetooth() {
       await characteristic.startNotifications();
       console.log('startNotifications() succeeded');
     } catch (err: any) {
-      throw new Error(`Failed to start notifications: ${err.message || 'Unknown error'}`);
+      throw new Error(`Failed to start notifications: ${err.message || 'Unknown error'}. Please ensure your ESP32 firmware supports notifications on this characteristic.`);
     }
 
     if (attemptToken !== attemptTokenRef.current) {
@@ -238,16 +241,17 @@ export function useEyeRBluetooth() {
 
       const cccdValue = new Uint8Array([0x01, 0x00]);
       await cccdDescriptor.writeValue(cccdValue);
-      console.log('CCCD descriptor write succeeded');
+      console.log('CCCD descriptor write succeeded - ESP32 should now detect connection');
     } catch (cccdErr: any) {
       console.warn('CCCD descriptor write failed (this may be normal):', cccdErr.message || cccdErr);
+      console.log('Notifications may still work via startNotifications() alone');
     }
 
     notificationsEnabledRef.current = true;
     console.log('Notifications fully enabled');
   };
 
-  const connect = useCallback(async (options: ConnectOptions = {}) => {
+  const connect = useCallback(async (options: ConnectOptions) => {
     const {
       serviceUUID = NUS_SERVICE_UUID,
       characteristicUUID = NUS_TX_CHARACTERISTIC_UUID,
@@ -256,12 +260,12 @@ export function useEyeRBluetooth() {
     } = options;
 
     if (!isSupported || !navigator.bluetooth) {
-      setError('Web Bluetooth is not supported in this browser.');
+      setError('Web Bluetooth is not supported in this browser. Please use a Chromium-based browser like Chrome, Edge, or Opera.');
       return;
     }
 
     if (isConnectingRef.current) {
-      console.log('Connection attempt already in progress');
+      console.log('Connection attempt already in progress, ignoring new request');
       return;
     }
 
@@ -303,7 +307,7 @@ export function useEyeRBluetooth() {
       let device: BluetoothDevice;
       
       if (isCustomMode) {
-        console.log('Using custom/unknown profile mode');
+        console.log('Using custom/unknown profile mode with acceptAllDevices');
         const optionalServices: string[] = [NUS_SERVICE_UUID];
         if (normalizedServiceUUID && normalizedServiceUUID !== NUS_SERVICE_UUID) {
           optionalServices.push(toServiceString(normalizedServiceUUID));
@@ -313,48 +317,40 @@ export function useEyeRBluetooth() {
           optionalServices
         });
       } else {
-        console.log(`Using known profile mode with service: ${formatUUID(normalizedServiceUUID!)}`);
-        const optionalServices: string[] = [NUS_SERVICE_UUID];
-        if (normalizedServiceUUID !== NUS_SERVICE_UUID) {
+        console.log(`Using known profile mode with service filter: ${formatUUID(normalizedServiceUUID!)}`);
+        const optionalServices: string[] = [];
+        if (normalizedCharUUID) {
           optionalServices.push(toServiceString(normalizedServiceUUID!));
         }
         device = await navigator.bluetooth.requestDevice({
-          filters: [{ services: [normalizedServiceUUID!] }],
+          filters: [{ services: [toServiceString(normalizedServiceUUID!)] }],
           optionalServices
         });
       }
 
-      console.log('Step 1: Device Selected');
-
       if (currentAttemptToken !== attemptTokenRef.current) {
         throw new Error('Connection attempt was cancelled');
       }
 
+      console.log(`Device selected: ${device.name || 'Unknown'}`);
       deviceRef.current = device;
 
-      const handleDisconnect = () => {
+      const disconnectListener = () => {
         console.log('Device disconnected');
-        cleanupConnection();
-        setConnectionState('disconnected');
-        isConnectingRef.current = false;
+        disconnect();
       };
-      disconnectListenerRef.current = handleDisconnect;
-      device.addEventListener('gattserverdisconnected', handleDisconnect);
+      device.addEventListener('gattserverdisconnected', disconnectListener);
+      disconnectListenerRef.current = disconnectListener;
 
-      if (!device.gatt) {
-        throw new Error('Device does not support GATT (BLE)');
-      }
+      console.log('Connecting to GATT server...');
+      const server = await device.gatt!.connect();
+      serverRef.current = server;
+      console.log('GATT server connected');
 
       if (currentAttemptToken !== attemptTokenRef.current) {
         throw new Error('Connection attempt was cancelled');
       }
 
-      const server = await device.gatt.connect();
-      serverRef.current = server;
-
-      console.log('Step 2: GATT Connected');
-
-      // Force MTU exchange delay
       console.log(`Waiting ${MTU_EXCHANGE_DELAY_MS}ms for MTU exchange...`);
       await new Promise(resolve => setTimeout(resolve, MTU_EXCHANGE_DELAY_MS));
 
@@ -362,65 +358,32 @@ export function useEyeRBluetooth() {
         throw new Error('Connection attempt was cancelled');
       }
 
-      let characteristic: BluetoothRemoteGATTCharacteristic | null = null;
+      let characteristic: BluetoothRemoteGATTCharacteristic;
 
-      // Universal service search
-      try {
-        console.log('Attempting universal service discovery...');
-        const allServices = await server.getPrimaryServices();
-        console.log(`Found ${allServices.length} primary services`);
-        
-        let nusService: BluetoothRemoteGATTService | null = null;
-        
-        for (const service of allServices) {
-          const serviceUuidNormalized = service.uuid.toLowerCase();
-          const nusUuidNormalized = NUS_SERVICE_UUID.toLowerCase();
-          
-          if (serviceUuidNormalized === nusUuidNormalized) {
-            console.log('Found NUS service via universal discovery');
-            nusService = service;
-            break;
-          }
+      if (autoDiscover) {
+        characteristic = await discoverNotifyingCharacteristic(server, currentAttemptToken);
+      } else {
+        if (!normalizedServiceUUID || !normalizedCharUUID) {
+          throw new Error('Service UUID and Characteristic UUID are required when auto-discovery is disabled');
         }
+
+        console.log(`Getting service ${formatUUID(normalizedServiceUUID)}...`);
+        const service = await server.getPrimaryService(toServiceString(normalizedServiceUUID));
         
-        if (nusService) {
-          console.log('Step 3: Service Found');
-          console.log('Getting NUS TX characteristic...');
-          
-          if (currentAttemptToken !== attemptTokenRef.current) {
-            throw new Error('Connection attempt was cancelled');
-          }
-          
-          const txCharacteristic = await nusService.getCharacteristic(NUS_TX_CHARACTERISTIC_UUID);
-          console.log('NUS TX characteristic found');
-          characteristic = txCharacteristic;
-          console.log('Step 4: Characteristic Found');
-        } else {
-          console.warn('NUS service not found via universal discovery');
-          
-          if (isCustomMode) {
-            console.log('Falling back to cross-service discovery...');
-            characteristic = await discoverNotifyingCharacteristic(server, currentAttemptToken);
-            console.log('Step 3: Service Found');
-            console.log('Step 4: Characteristic Found');
-          } else {
-            throw new Error('Nordic UART Service (NUS) not found on device');
-          }
+        if (currentAttemptToken !== attemptTokenRef.current) {
+          throw new Error('Connection attempt was cancelled');
         }
-      } catch (discoveryError: any) {
-        console.error('Service discovery error:', discoveryError);
-        throw discoveryError;
+
+        console.log(`Getting characteristic ${formatUUID(normalizedCharUUID)}...`);
+        characteristic = await service.getCharacteristic(toServiceString(normalizedCharUUID));
       }
 
       if (currentAttemptToken !== attemptTokenRef.current) {
         throw new Error('Connection attempt was cancelled');
       }
 
-      if (!characteristic) {
-        throw new Error('Failed to find a suitable characteristic');
-      }
-
       characteristicRef.current = characteristic;
+      console.log(`Using characteristic: ${characteristic.uuid}`);
 
       await enableNotifications(characteristic, currentAttemptToken);
 
@@ -429,30 +392,49 @@ export function useEyeRBluetooth() {
       }
 
       setConnectionState('connected');
-      isConnectingRef.current = false;
-      console.log('Connection complete - notifications enabled');
+      console.log('Connection fully established with notifications enabled');
 
     } catch (err: any) {
       console.error('Connection error:', err);
       
-      if (!err.message?.includes('cancelled')) {
-        setError(err.message || 'Failed to connect');
+      if (err.message?.includes('cancelled')) {
+        console.log('Connection attempt was cancelled by user or new attempt');
+      } else {
+        setError(err.message || 'Failed to connect to device');
       }
       
       cleanupConnection();
       deviceRef.current = null;
-      isConnectingRef.current = false;
       setConnectionState('disconnected');
+    } finally {
+      isConnectingRef.current = false;
+      if (abortControllerRef.current === abortController) {
+        abortControllerRef.current = null;
+      }
     }
-  }, [isSupported, cleanupConnection, handleCharacteristicValueChanged]);
+  }, [isSupported, cleanupConnection, disconnect, handleCharacteristicValueChanged]);
 
-  return {
-    connectionState,
-    error,
-    connect,
-    disconnect,
-    isSupported,
-    latestReading,
-    latestBlinkRate,
-  };
+  return (
+    <BluetoothContext.Provider
+      value={{
+        connectionState,
+        error,
+        connect,
+        disconnect,
+        isSupported,
+        setOnBlinkRateChange,
+        latestReading,
+      }}
+    >
+      {children}
+    </BluetoothContext.Provider>
+  );
+}
+
+export function useBluetooth() {
+  const context = useContext(BluetoothContext);
+  if (!context) {
+    throw new Error('useBluetooth must be used within BluetoothProvider');
+  }
+  return context;
 }

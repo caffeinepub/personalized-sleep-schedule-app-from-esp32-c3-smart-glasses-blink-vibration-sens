@@ -1,83 +1,171 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Eye, TrendingUp } from 'lucide-react';
-import type { BlinkRateMeasurement } from '../../backend';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useRef, useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Activity, AlertCircle } from 'lucide-react';
+import type { BlinkRateDataPoint } from '../../hooks/useSessionBlinkRateHistory';
 
 interface BlinkRateChartProps {
-  data: BlinkRateMeasurement[];
-  isLoading: boolean;
+  data: BlinkRateDataPoint[];
+  title?: string;
 }
 
-export default function BlinkRateChart({ data, isLoading }: BlinkRateChartProps) {
-  const chartData = data.map((m) => ({
-    timestamp: new Date(Number(m.timestamp / BigInt(1_000_000))).toLocaleString(),
-    blinkRate: Number(m.blinkRate),
-  }));
+function formatTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
 
-  const avgBlinkRate = data.length > 0
-    ? Math.round(data.reduce((sum, m) => sum + Number(m.blinkRate), 0) / data.length)
-    : 0;
+export default function BlinkRateChart({ data, title = 'Blink Rate History' }: BlinkRateChartProps) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 3-second loading timeout
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setIsLoading(false);
+    }, 3000);
+
+    return () => clearTimeout(timeout);
+  }, []);
+
+  // Stop loading immediately if we have data
+  useEffect(() => {
+    if (data.length > 0) {
+      setIsLoading(false);
+    }
+  }, [data]);
+
+  useEffect(() => {
+    if (!canvasRef.current || data.length === 0) return;
+
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const width = canvas.width;
+    const height = canvas.height;
+    const padding = 40;
+    const plotWidth = width - 2 * padding;
+    const plotHeight = height - 2 * padding;
+
+    ctx.clearRect(0, 0, width, height);
+
+    const values = data.map(d => d.blinkRate);
+    const maxRate = Math.max(...values, 30);
+    const minRate = Math.min(...values, 0);
+    const range = maxRate - minRate || 1;
+
+    // Draw line
+    ctx.strokeStyle = 'oklch(0.65 0.15 200)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    data.forEach((point, index) => {
+      const x = padding + (index / (data.length - 1 || 1)) * plotWidth;
+      const y = padding + plotHeight - ((point.blinkRate - minRate) / range) * plotHeight;
+      
+      if (index === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    });
+
+    ctx.stroke();
+
+    // Draw points
+    ctx.fillStyle = 'oklch(0.65 0.15 200)';
+    data.forEach((point, index) => {
+      const x = padding + (index / (data.length - 1 || 1)) * plotWidth;
+      const y = padding + plotHeight - ((point.blinkRate - minRate) / range) * plotHeight;
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, 2 * Math.PI);
+      ctx.fill();
+    });
+
+    // Draw baseline
+    ctx.strokeStyle = 'oklch(0.7 0.02 200)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(padding, padding + plotHeight);
+    ctx.lineTo(padding + plotWidth, padding + plotHeight);
+    ctx.stroke();
+
+    // Draw labels
+    ctx.fillStyle = 'oklch(0.45 0.05 200)';
+    ctx.font = '12px Inter, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(`${maxRate} bpm`, 5, padding + 12);
+    ctx.fillText(`${minRate} bpm`, 5, padding + plotHeight);
+
+  }, [data]);
+
+  // Loading state (only shows for first 3 seconds)
+  if (isLoading && data.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            {title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="py-12 text-center">
+            <p className="text-muted-foreground">Loading...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Empty state (after timeout or immediately if no data)
+  if (data.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Activity className="h-5 w-5" />
+            {title}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="py-12 flex flex-col items-center justify-center text-center space-y-3">
+            <AlertCircle className="h-12 w-12 text-muted-foreground opacity-50" />
+            <p className="text-muted-foreground">
+              No historical data saved yet
+            </p>
+            <p className="text-sm text-muted-foreground">
+              Connect your device to start collecting blink rate data
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Eye className="h-5 w-5" />
-          Blink Rate History
+          <Activity className="h-5 w-5" />
+          {title} ({data.length} readings)
         </CardTitle>
-        <CardDescription>
-          Blinks per minute tracked over time
-        </CardDescription>
       </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <div className="h-64 flex items-center justify-center text-muted-foreground">
-            Loading data...
-          </div>
-        ) : data.length === 0 ? (
-          <div className="h-64 flex flex-col items-center justify-center text-muted-foreground space-y-2">
-            <Eye className="h-12 w-12 opacity-20" />
-            <p>No blink rate data available for this time range</p>
-            <p className="text-sm">Start recording data from your smart glasses</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2 text-sm">
-              <TrendingUp className="h-4 w-4 text-chart-1" />
-              <span className="text-muted-foreground">Average:</span>
-              <span className="font-semibold text-foreground">{avgBlinkRate} blinks/min</span>
-            </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={chartData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="oklch(var(--border))" />
-                <XAxis
-                  dataKey="timestamp"
-                  stroke="oklch(var(--muted-foreground))"
-                  fontSize={12}
-                  tickLine={false}
-                />
-                <YAxis
-                  stroke="oklch(var(--muted-foreground))"
-                  fontSize={12}
-                  tickLine={false}
-                  label={{ value: 'Blinks/min', angle: -90, position: 'insideLeft' }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'oklch(var(--card))',
-                    border: '1px solid oklch(var(--border))',
-                    borderRadius: '8px',
-                  }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="blinkRate"
-                  stroke="oklch(var(--chart-1))"
-                  strokeWidth={2}
-                  dot={{ fill: 'oklch(var(--chart-1))' }}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+      <CardContent className="space-y-4">
+        <canvas
+          ref={canvasRef}
+          width={800}
+          height={200}
+          className="w-full h-auto border border-border rounded"
+        />
+        
+        {data.length > 0 && (
+          <div className="flex items-center justify-between text-sm text-muted-foreground">
+            <span>First: {formatTime(data[0].timestamp)}</span>
+            <span>Latest: {formatTime(data[data.length - 1].timestamp)}</span>
           </div>
         )}
       </CardContent>

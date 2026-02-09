@@ -1,115 +1,195 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Moon, Sun, Sparkles, AlertCircle } from 'lucide-react';
-import type { SleepRecommendation } from '../../backend';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { Brain, Sparkles, Moon, AlertCircle } from 'lucide-react';
+import { type AlertnessStateInfo, type SchedulePlan, type AlertnessState } from '../../utils/personalizedSleepSchedule';
+
+interface CapturedScheduleState {
+  stateInfo: AlertnessStateInfo;
+  plan: SchedulePlan;
+  rollingAverage: number;
+  capturedAt: number;
+}
 
 interface SleepScheduleCardProps {
-  recommendation: SleepRecommendation | null;
+  currentStateInfo: AlertnessStateInfo | null;
+  currentRollingAverage: number;
+  hasRecentData: boolean;
+  dataPointCount: number;
+  capturedSchedule: CapturedScheduleState | null;
   onGenerate: () => void;
   isGenerating: boolean;
-  hasData: boolean;
-}
-
-function formatTime(timestamp: bigint): string {
-  const date = new Date(Number(timestamp / BigInt(1_000_000)));
-  return date.toLocaleString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  });
-}
-
-function formatDate(timestamp: bigint): string {
-  const date = new Date(Number(timestamp / BigInt(1_000_000)));
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-  });
 }
 
 export default function SleepScheduleCard({
-  recommendation,
+  currentStateInfo,
+  currentRollingAverage,
+  hasRecentData,
+  dataPointCount,
+  capturedSchedule,
   onGenerate,
   isGenerating,
-  hasData,
 }: SleepScheduleCardProps) {
+  const canGenerate = hasRecentData && dataPointCount >= 3;
+
+  const getStateIcon = (state: AlertnessState) => {
+    switch (state) {
+      case 'high-alertness':
+        return <Sparkles className="h-5 w-5 text-green-600" />;
+      case 'normal':
+        return <Brain className="h-5 w-5 text-blue-600" />;
+      case 'drowsy':
+        return <Moon className="h-5 w-5 text-orange-600" />;
+      default:
+        return <AlertCircle className="h-5 w-5 text-gray-600" />;
+    }
+  };
+
+  const getStateBadgeVariant = (state: AlertnessState) => {
+    switch (state) {
+      case 'high-alertness':
+        return 'default';
+      case 'normal':
+        return 'secondary';
+      case 'drowsy':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
+
+  const getStateDisplayName = (state: AlertnessState): string => {
+    switch (state) {
+      case 'high-alertness':
+        return 'High Alertness';
+      case 'normal':
+        return 'Normal';
+      case 'drowsy':
+        return 'Drowsy';
+      default:
+        return 'Unknown';
+    }
+  };
+
   return (
-    <Card className="border-2">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Sparkles className="h-5 w-5 text-chart-1" />
+          <Brain className="h-6 w-6" />
           Personalized Sleep Schedule
         </CardTitle>
         <CardDescription>
-          AI-generated recommendations based on your blink rate and movement patterns
+          Generate recommendations based on your current alertness state (5-minute rolling average)
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {!hasData ? (
-          <div className="py-8 flex flex-col items-center justify-center text-center space-y-3">
-            <AlertCircle className="h-12 w-12 text-muted-foreground opacity-50" />
-            <p className="text-muted-foreground">
-              No data available for the selected time range
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Record some data from your smart glasses first
-            </p>
-          </div>
-        ) : !recommendation ? (
-          <div className="py-8 flex flex-col items-center justify-center text-center space-y-4">
-            <Moon className="h-12 w-12 text-muted-foreground opacity-50" />
-            <p className="text-muted-foreground">
-              Generate your personalized sleep schedule based on collected data
-            </p>
-            <Button onClick={onGenerate} disabled={isGenerating} size="lg" className="gap-2">
-              <Sparkles className="h-4 w-4" />
-              {isGenerating ? 'Analyzing...' : 'Generate Schedule'}
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <Moon className="h-5 w-5 text-chart-1" />
-                  <span className="text-sm font-medium text-muted-foreground">Bedtime</span>
-                </div>
-                <div className="text-3xl font-bold text-foreground">
-                  {formatTime(recommendation.suggestedBedtime)}
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  {formatDate(recommendation.suggestedBedtime)}
+      <CardContent className="space-y-6">
+        {/* Current Live State */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+            Current State (Live)
+          </h3>
+          {currentStateInfo ? (
+            <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-3">
+                {getStateIcon(currentStateInfo.state)}
+                <div>
+                  <p className="font-semibold text-foreground">{getStateDisplayName(currentStateInfo.state)}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Rolling Avg: {currentRollingAverage.toFixed(1)} BPM
+                  </p>
                 </div>
               </div>
-
-              <div className="p-4 rounded-lg bg-accent/10 border border-accent/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <Sun className="h-5 w-5 text-chart-4" />
-                  <span className="text-sm font-medium text-muted-foreground">Wake Time</span>
-                </div>
-                <div className="text-3xl font-bold text-foreground">
-                  {formatTime(recommendation.suggestedWakeup)}
-                </div>
-                <div className="text-sm text-muted-foreground mt-1">
-                  {formatDate(recommendation.suggestedWakeup)}
-                </div>
-              </div>
+              <Badge variant={getStateBadgeVariant(currentStateInfo.state)}>
+                {dataPointCount} readings
+              </Badge>
             </div>
-
-            <div className="p-4 rounded-lg bg-muted/50 space-y-2">
-              <h4 className="font-medium text-foreground">About Your Schedule</h4>
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                This schedule is personalized based on your blink rate patterns and movement data collected between{' '}
-                {formatDate(recommendation.analysisWindowStart)} and {formatDate(recommendation.analysisWindowEnd)}.
-                Your blink rate indicates optimal alertness periods, while movement data helps identify your natural rest cycles.
+          ) : (
+            <div className="p-4 bg-muted/30 rounded-lg text-center">
+              <p className="text-sm text-muted-foreground">
+                No recent data available. Connect your device to start monitoring.
               </p>
             </div>
+          )}
+        </div>
 
-            <Button onClick={onGenerate} disabled={isGenerating} variant="outline" className="w-full gap-2">
-              <Sparkles className="h-4 w-4" />
-              {isGenerating ? 'Regenerating...' : 'Regenerate Schedule'}
-            </Button>
-          </div>
+        <Separator />
+
+        {/* Generate Button */}
+        <div className="flex flex-col gap-3">
+          <Button
+            onClick={onGenerate}
+            disabled={!canGenerate || isGenerating}
+            size="lg"
+            className="w-full"
+          >
+            {isGenerating ? (
+              <>
+                <Brain className="h-5 w-5 mr-2 animate-pulse" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-5 w-5 mr-2" />
+                Generate Schedule
+              </>
+            )}
+          </Button>
+          {!canGenerate && hasRecentData && (
+            <p className="text-xs text-muted-foreground text-center">
+              Need at least 3 readings in the last 5 minutes
+            </p>
+          )}
+          {!hasRecentData && (
+            <p className="text-xs text-muted-foreground text-center">
+              No recent data available
+            </p>
+          )}
+        </div>
+
+        {/* Captured Schedule */}
+        {capturedSchedule && (
+          <>
+            <Separator />
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
+                  Generated Schedule
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {new Date(capturedSchedule.capturedAt).toLocaleTimeString()}
+                </p>
+              </div>
+
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg space-y-3">
+                <div className="flex items-center gap-3">
+                  {getStateIcon(capturedSchedule.stateInfo.state)}
+                  <div>
+                    <p className="font-semibold text-foreground">
+                      {getStateDisplayName(capturedSchedule.stateInfo.state)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      Captured at {capturedSchedule.rollingAverage.toFixed(1)} BPM
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2 pt-2">
+                  <p className="text-sm font-medium text-foreground">
+                    {capturedSchedule.plan.title}
+                  </p>
+                  <ul className="space-y-1 text-sm text-muted-foreground">
+                    {capturedSchedule.plan.items.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="text-primary mt-0.5">•</span>
+                        <span>{item}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </>
         )}
       </CardContent>
     </Card>

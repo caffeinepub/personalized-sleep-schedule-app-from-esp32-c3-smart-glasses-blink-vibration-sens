@@ -1,29 +1,16 @@
-import { useInternetIdentity } from './hooks/useInternetIdentity';
-import { useGetCallerUserProfile } from './hooks/useCurrentUserProfile';
-import AuthGate from './components/auth/AuthGate';
-import ProfileSetupDialog from './components/profile/ProfileSetupDialog';
 import AppLayout from './components/layout/AppLayout';
 import Dashboard from './pages/Dashboard';
 import DeviceDataIngestion from './pages/DeviceDataIngestion';
 import DeviceConnection from './pages/DeviceConnection';
+import { BluetoothProvider } from './contexts/BluetoothContext';
 import { createRouter, createRoute, createRootRoute, RouterProvider } from '@tanstack/react-router';
 
 function RootComponent() {
-  const { identity } = useInternetIdentity();
-  const { data: userProfile, isLoading: profileLoading, isFetched } = useGetCallerUserProfile();
-  
-  const isAuthenticated = !!identity;
-  const showProfileSetup = isAuthenticated && !profileLoading && isFetched && userProfile === null;
-
-  if (!isAuthenticated) {
-    return <AuthGate />;
-  }
-
-  if (showProfileSetup) {
-    return <ProfileSetupDialog />;
-  }
-
-  return <AppLayout />;
+  return (
+    <BluetoothProvider>
+      <AppLayout />
+    </BluetoothProvider>
+  );
 }
 
 const rootRoute = createRootRoute({

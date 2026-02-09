@@ -28,6 +28,15 @@ export interface SleepRecommendation {
     analysisWindowStart: Timestamp;
     suggestedWakeup: Timestamp;
 }
+export interface BlinkSummary {
+    averageBlinkRate?: bigint;
+    maxBlinkRate?: bigint;
+    totalBlinks: bigint;
+    userPrincipal?: Principal;
+    deviceId: DeviceId;
+    timestamp: Timestamp;
+    minBlinkRate?: bigint;
+}
 export interface UserProfile {
     name: string;
 }
@@ -43,6 +52,7 @@ export interface backendInterface {
     generateSleepRecommendation(deviceId: DeviceId, analysisWindowStart: Timestamp, analysisWindowEnd: Timestamp): Promise<SleepRecommendation>;
     getBlinkRates(deviceId: DeviceId): Promise<Array<BlinkRateMeasurement>>;
     getBlinkRatesInTimeRange(deviceId: DeviceId, startTime: Timestamp, endTime: Timestamp): Promise<Array<BlinkRateMeasurement>>;
+    getBlinkSummariesInTimeRange(deviceId: DeviceId, startTime: Timestamp, endTime: Timestamp): Promise<Array<BlinkSummary>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
@@ -50,6 +60,7 @@ export interface backendInterface {
     getVibrationEventsInTimeRange(deviceId: DeviceId, startTime: Timestamp, endTime: Timestamp): Promise<Array<VibrationEvent>>;
     isCallerAdmin(): Promise<boolean>;
     recordBlinkRate(deviceId: DeviceId, blinkRate: BlinkRate): Promise<void>;
+    recordBlinkSummary(deviceId: DeviceId, summary: BlinkSummary): Promise<void>;
     recordVibrationEvent(deviceId: DeviceId): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
 }

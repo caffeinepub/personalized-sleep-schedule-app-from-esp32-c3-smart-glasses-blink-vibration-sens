@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useActor } from './useActor';
-import type { BlinkRateMeasurement, VibrationEvent, SleepRecommendation, UserProfile } from '../backend';
+import type { BlinkRateMeasurement, VibrationEvent, UserProfile, BlinkSummary } from '../backend';
 
 export function useGetBlinkRatesInTimeRange(deviceId: string, startTime: bigint, endTime: bigint) {
   const { actor, isFetching } = useActor();
@@ -12,6 +12,7 @@ export function useGetBlinkRatesInTimeRange(deviceId: string, startTime: bigint,
       return actor.getBlinkRatesInTimeRange(deviceId, startTime, endTime);
     },
     enabled: !!actor && !isFetching && !!deviceId,
+    retry: false,
   });
 }
 
@@ -25,6 +26,23 @@ export function useGetVibrationEventsInTimeRange(deviceId: string, startTime: bi
       return actor.getVibrationEventsInTimeRange(deviceId, startTime, endTime);
     },
     enabled: !!actor && !isFetching && !!deviceId,
+    retry: false,
+  });
+}
+
+export function useGetBlinkSummariesInTimeRange(deviceId: string, startTime: bigint, endTime: bigint) {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<BlinkSummary[]>({
+    queryKey: ['blinkSummaries', deviceId, startTime.toString(), endTime.toString()],
+    queryFn: async () => {
+      if (!actor) {
+        return [];
+      }
+      return actor.getBlinkSummariesInTimeRange(deviceId, startTime, endTime);
+    },
+    enabled: !!actor && !isFetching && !!deviceId,
+    retry: false,
   });
 }
 
@@ -43,26 +61,6 @@ export function useRecordBlinkRate() {
       queryClient.invalidateQueries({ queryKey: ['blinkRates'] });
     },
   });
-}
-
-export function useGenerateSleepRecommendation() {
-  const { actor } = useActor();
-  const queryClient = useQueryClient();
-
-  return useMutation<SleepRecommendation, Error, { deviceId: string; startTime: bigint; endTime: bigint }>({
-    mutationFn: async ({ deviceId, startTime, endTime }) => {
-      if (!actor) throw new Error('Actor not available');
-      return actor.generateSleepRecommendation(deviceId, startTime, endTime);
-    },
-    onSuccess: (data, variables) => {
-      queryClient.setQueryData(['sleepRecommendation', variables.deviceId], data);
-    },
-  });
-}
-
-export function useGetSleepRecommendation(deviceId: string) {
-  const queryClient = useQueryClient();
-  return queryClient.getQueryData<SleepRecommendation>(['sleepRecommendation', deviceId]);
 }
 
 export function useSaveCallerUserProfile() {

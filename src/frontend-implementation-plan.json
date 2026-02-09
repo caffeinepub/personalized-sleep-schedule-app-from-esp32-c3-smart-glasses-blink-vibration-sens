@@ -1,26 +1,130 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Update Eye-R Web Bluetooth device filter to Heart Rate service (0x180d)",
+  "title": "Blink-tracking app: fully local-first (localStorage) runtime with IC connectivity disabled",
   "requirements": [
     {
-      "id": "REQ-14",
-      "summary": "Change Web Bluetooth requestDevice filtering to discover Eye-R devices advertising the Heart Rate service (0x180d) and remove any UART/Nordic UART optional services while keeping the existing 0x180d notification flow working.",
+      "id": "REQ-1",
+      "summary": "Remove runtime Internet Identity/actor bootstrap usage so the app never initializes or calls the IC backend during normal use.",
       "acceptanceCriteria": [
-        "When clicking \"Connect Device\" on the Device Connection page, the browser’s device picker shows devices advertising the Heart Rate service (0x180d), without relying on the name \"UART Service\".",
-        "The requestDevice call no longer uses the Nordic UART optionalServices UUID \"6e400001-b5a3-f393-e0a9-e50e24dcca9e\" for the Eye-R connection path.",
-        "After selecting a compatible device, the app connects and continues subscribing to notifications for blink rate data via Heart Rate service 0x180d, as before."
+        "App loads and is usable without requiring Internet Identity login.",
+        "No UI components initialize or depend on `useActor()` / `useActorBootstrap()` at runtime (e.g., `ActorBootstrap` is not mounted from `App.tsx`).",
+        "The app no longer triggers any backend actor initialization or calls (e.g., no calls to functions in `frontend/src/hooks/useQueries.ts`, `useCurrentUserProfile.ts`, or `useBlinkSummaryFlush.ts` during normal use)."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/hooks/useEyeRBluetooth.ts",
+          "path": "frontend/src/App.tsx",
           "operation": "modify",
-          "description": "Update navigator.bluetooth.requestDevice options to use a filter that targets the Heart Rate service (SERVICE_UUID = 0x180d) rather than filtering by device name, and ensure no Nordic UART optional service UUID is referenced. Keep the existing GATT connection, service discovery (0x180d), and notification subscription flow intact."
+          "description": "Remove Internet Identity / user profile bootstrap (`useInternetIdentity`, `useGetCallerUserProfile`, `ProfileSetupDialog`) and stop mounting `ActorBootstrap`; keep only the Bluetooth provider + layout/router so the app runs fully offline."
+        },
+        {
+          "path": "frontend/src/components/layout/AppHeader.tsx",
+          "operation": "modify",
+          "description": "Remove identity-dependent UI (`useInternetIdentity`, `useGetCallerUserProfile`, `LoginButton`) so the header never triggers authentication or backend-dependent queries during rendering."
+        },
+        {
+          "path": "frontend/src/components/profile/ProfileSetupDialog.tsx",
+          "operation": "modify",
+          "description": "Decouple from backend profile saving by removing `useSaveCallerUserProfile` usage; adjust to either not render (preferred via App.tsx changes) or to no-op safely if it remains imported somewhere."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Eliminate all storage/actor availability notification UI (including retry/reload logic and connecting indicators).",
+      "acceptanceCriteria": [
+        "The 'Storage unavailable. Live data will continue locally.' popup is never rendered.",
+        "The 'Retry' button is removed and no longer triggers reload/retry behavior.",
+        "No 'Connecting to storage...' indicator is shown."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/actor/ActorBootstrap.tsx",
+          "operation": "modify",
+          "description": "Remove all UI that shows initialization state, 'Connecting to storage…', 'Storage unavailable…', and the Retry button; convert to a simple passthrough wrapper (or a deprecated component) that only renders children without calling actor/bootstrap hooks."
+        },
+        {
+          "path": "frontend/src/hooks/useActorBootstrap.ts",
+          "operation": "modify",
+          "description": "Remove manual retry (window reload) and any derived error/initializing semantics tied to actor availability; ensure this hook is inert if it remains in the codebase (and ideally unused)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Persist blink measurements locally (localStorage primary) and append new Bluetooth readings to the stored history with safe in-memory fallback.",
+      "acceptanceCriteria": [
+        "Blink measurements are persisted to `localStorage` as they arrive from Bluetooth readings.",
+        "Refreshing the page does not erase previously recorded blink history.",
+        "If `localStorage` is unavailable or throws (e.g., privacy mode), the app continues working in-memory without showing any storage error popups."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useLocalBlinkHistory.ts",
+          "operation": "create",
+          "description": "Create a local-first blink history hook that (1) loads persisted history from `localStorage` on start, (2) appends new measurements with timestamp, (3) uses try/catch around all `localStorage` access, and (4) falls back to an in-memory store when persistence is unavailable."
+        },
+        {
+          "path": "frontend/src/pages/Dashboard.tsx",
+          "operation": "modify",
+          "description": "On each Bluetooth blink reading, append the measurement to the `localStorage`-backed history via `useLocalBlinkHistory`; ensure the dashboard can render using persisted history after refresh and continues to function if persistence fails."
         },
         {
           "path": "frontend/src/pages/DeviceConnection.tsx",
           "operation": "modify",
-          "description": "Update the Bluetooth Connection helper text so it no longer instructs users that the device must be advertising with the name \"Eye-R\", and instead reflects that discovery is based on advertising the Heart Rate service (0x180d)."
+          "description": "On each Bluetooth blink reading, append the measurement to the same `localStorage`-backed history (so persistence works even when the user stays on the Devices page)."
+        }
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "summary": "Make 'Generate Schedule' compute from the localStorage-backed blink history instantly, with no backend dependency or artificial delays.",
+      "acceptanceCriteria": [
+        "Clicking 'Generate Schedule' uses blink history loaded from `localStorage` as its data source.",
+        "The schedule generation path does not depend on backend actor availability and does not show 'Storage unavailable' or any retry UI.",
+        "Schedule generation completes without intentional delays and feels immediate (no simulated network wait)."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/Dashboard.tsx",
+          "operation": "modify",
+          "description": "Replace the schedule generation path to derive required metrics (e.g., last-5-minute rolling average and recency) from the persisted local blink history provided by `useLocalBlinkHistory`; remove the `setTimeout` delay so generation is immediate."
+        },
+        {
+          "path": "frontend/src/components/recommendation/SleepScheduleCard.tsx",
+          "operation": "modify",
+          "description": "Ensure UI state (button enabled/disabled, 'No recent data' messaging) is driven by local-history-derived recency/point counts rather than any backend/actor state; keep copy aligned with local-first behavior."
+        }
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "summary": "Remove backend periodic flush logic and update dashboard/device copy to reflect local-first (saved locally on this device).",
+      "acceptanceCriteria": [
+        "`useBlinkSummaryFlush` (or any actor-backed periodic flushing) is no longer used from the dashboard runtime path.",
+        "User-facing copy about saving reflects local-first behavior (saved locally on this device) and does not imply cloud/canister storage.",
+        "No runtime errors occur due to removal of backend-flush hooks when connected to a device and receiving blink readings."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/pages/Dashboard.tsx",
+          "operation": "modify",
+          "description": "Remove `useBlinkSummaryFlush` usage and associated 'saved every 5 minutes' / 'Next Save' UI; replace with local-first status (e.g., 'Saved locally on this device') derived from local history append events."
+        },
+        {
+          "path": "frontend/src/pages/DeviceConnection.tsx",
+          "operation": "modify",
+          "description": "Remove `useBlinkSummaryFlush` usage and any cloud/5-minute save messaging; replace with accurate local-first messaging indicating blink data is stored locally as readings arrive."
+        },
+        {
+          "path": "frontend/src/hooks/useBlinkSummaryFlush.ts",
+          "operation": "modify",
+          "description": "Deprecate the actor-flush implementation by removing actor usage and timer-based backend writes; keep the module from performing any backend calls if it remains referenced accidentally (but the app should stop importing it in runtime paths)."
+        },
+        {
+          "path": "frontend/src/hooks/useBleWriteQueue.ts",
+          "operation": "modify",
+          "description": "Prevent any backend write attempts by removing actor usage and ensuring `flushQueue` becomes a safe no-op (or is clearly deprecated); this avoids accidental runtime backend calls if referenced elsewhere."
         }
       ]
     }

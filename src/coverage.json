@@ -1,26 +1,86 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-07T10:13:19.551Z",
+  "generatedAt": "2026-02-09T11:19:16.736Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 1,
-    "implemented": 1,
+    "total": 5,
+    "implemented": 5,
     "items": [
       {
-        "id": "REQ-14",
-        "summary": "Update the Web Bluetooth `navigator.bluetooth.requestDevice` options used for Eye-R so the scan/filter targets the Heart Rate service (0x180d) rather than a UART-based device name (e.g., \"UART Service\") and Nordic UART optionalServices (\"6e400001-b5a3-f393-e0a9-e50e24dcca9e\"). Ensure the filter includes service 0x180d so the Eye-R device can be discovered when it advertises Heart Rate, and keep the rest of the connection flow working with GATT notifications on service 0x180d.",
+        "id": "REQ-1",
+        "summary": "Disable all Internet Computer backend connectivity in the frontend by removing usage of the actor/Internet Identity/auth flow from the running app (no actor bootstrap, no identity-based gating, and no backend queries/mutations executed at runtime).",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/hooks/useEyeRBluetooth.ts",
+          "frontend/src/App.tsx",
+          "frontend/src/components/layout/AppHeader.tsx",
+          "frontend/src/components/profile/ProfileSetupDialog.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/App.tsx",
+          "frontend/src/components/layout/AppHeader.tsx",
+          "frontend/src/components/profile/ProfileSetupDialog.tsx"
+        ]
+      },
+      {
+        "id": "REQ-2",
+        "summary": "Remove the 'Storage unavailable' notification UI and the 'Retry' button logic entirely so no storage/actor availability popups appear.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/components/actor/ActorBootstrap.tsx",
+          "frontend/src/hooks/useActorBootstrap.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/actor/ActorBootstrap.tsx",
+          "frontend/src/hooks/useActorBootstrap.ts"
+        ]
+      },
+      {
+        "id": "REQ-3",
+        "summary": "Implement local-first persistence for blink history using the browser's `localStorage` as the primary/only storage mechanism for blink measurements, and ensure new blink readings are appended to this local storage history.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useLocalBlinkHistory.ts",
+          "frontend/src/pages/Dashboard.tsx",
           "frontend/src/pages/DeviceConnection.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/hooks/useEyeRBluetooth.ts",
+          "frontend/src/hooks/useLocalBlinkHistory.ts",
+          "frontend/src/pages/Dashboard.tsx",
           "frontend/src/pages/DeviceConnection.tsx"
+        ]
+      },
+      {
+        "id": "REQ-4",
+        "summary": "Fix 'Generate Schedule' so it reads the needed blink history data from the `localStorage`-backed blink history (not from any backend/actor source) and completes instantly without storage-related errors.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/Dashboard.tsx",
+          "frontend/src/components/recommendation/SleepScheduleCard.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/Dashboard.tsx",
+          "frontend/src/components/recommendation/SleepScheduleCard.tsx"
+        ]
+      },
+      {
+        "id": "REQ-5",
+        "summary": "Update the dashboard/session tracking flow to remove backend-flush logic (e.g., 5-minute summary flush to actor) and replace any 'saved every 5 minutes' messaging with accurate local-first wording aligned to localStorage persistence.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/pages/Dashboard.tsx",
+          "frontend/src/pages/DeviceConnection.tsx",
+          "frontend/src/hooks/useBlinkSummaryFlush.ts",
+          "frontend/src/hooks/useBleWriteQueue.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/pages/Dashboard.tsx",
+          "frontend/src/pages/DeviceConnection.tsx",
+          "frontend/src/hooks/useBlinkSummaryFlush.ts",
+          "frontend/src/hooks/useBleWriteQueue.ts"
         ]
       }
     ]
@@ -30,7 +90,16 @@
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/hooks/useEyeRBluetooth.ts",
+    "frontend/src/App.tsx",
+    "frontend/src/components/actor/ActorBootstrap.tsx",
+    "frontend/src/components/layout/AppHeader.tsx",
+    "frontend/src/components/profile/ProfileSetupDialog.tsx",
+    "frontend/src/components/recommendation/SleepScheduleCard.tsx",
+    "frontend/src/hooks/useActorBootstrap.ts",
+    "frontend/src/hooks/useBleWriteQueue.ts",
+    "frontend/src/hooks/useBlinkSummaryFlush.ts",
+    "frontend/src/hooks/useLocalBlinkHistory.ts",
+    "frontend/src/pages/Dashboard.tsx",
     "frontend/src/pages/DeviceConnection.tsx",
     "project_state.json",
     "scratch/component-selection.json",

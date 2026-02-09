@@ -1,11 +1,11 @@
-import Array "mo:core/Array";
 import Map "mo:core/Map";
-import Time "mo:core/Time";
 import List "mo:core/List";
+import Time "mo:core/Time";
 import Principal "mo:core/Principal";
 import Order "mo:core/Order";
 import Iter "mo:core/Iter";
 import Runtime "mo:core/Runtime";
+
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
 
@@ -65,8 +65,21 @@ actor {
     };
   };
 
+  // New BlinkSummary type and storage
+  public type BlinkSummary = {
+    deviceId : DeviceId;
+    timestamp : Timestamp;
+    userPrincipal : ?Principal;
+    totalBlinks : Nat;
+    averageBlinkRate : ?Nat;
+    maxBlinkRate : ?Nat;
+    minBlinkRate : ?Nat;
+    // Add additional summary metrics as needed
+  };
+
   let blinkRatesMap = Map.empty<DeviceId, List.List<BlinkRateMeasurement>>();
   let vibrationEventsMap = Map.empty<DeviceId, List.List<VibrationEvent>>();
+  let blinkSummariesMap = Map.empty<DeviceId, List.List<BlinkSummary>>(); // New map for summaries
   var nextVibrationEventId = 0;
 
   let accessControlState = AccessControl.initState();
@@ -119,6 +132,21 @@ actor {
     events.filter(
       func(e) {
         switch (e.userPrincipal) {
+          case (?principal) { Principal.equal(principal, caller) };
+          case (null) { false };
+        };
+      }
+    );
+  };
+
+  func filterSummariesByOwnership(caller : Principal, summaries : List.List<BlinkSummary>) : List.List<BlinkSummary> {
+    if (AccessControl.isAdmin(accessControlState, caller)) {
+      return summaries;
+    };
+
+    summaries.filter(
+      func(s) {
+        switch (s.userPrincipal) {
           case (?principal) { Principal.equal(principal, caller) };
           case (null) { false };
         };
@@ -191,6 +219,41 @@ actor {
     filtered.toArray();
   };
 
+  // New backend summary recording method
+  public shared ({ caller }) func recordBlinkSummary(deviceId : DeviceId, summary : BlinkSummary) : async () {
+    let summaryWithTimestamp = { summary with timestamp = Time.now() };
+
+    let existing = blinkSummariesMap.get(deviceId);
+    let summaries = switch (existing) {
+      case (null) { List.empty<BlinkSummary>() };
+      case (?list) { list };
+    };
+    summaries.add(summaryWithTimestamp);
+    blinkSummariesMap.add(deviceId, summaries);
+  };
+
+  // Query summaries in time range
+  public query ({ caller }) func getBlinkSummariesInTimeRange(deviceId : DeviceId, startTime : Timestamp, endTime : Timestamp) : async [BlinkSummary] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can access device data");
+    };
+
+    let summaries = switch (blinkSummariesMap.get(deviceId)) {
+      case (null) { List.empty<BlinkSummary>() };
+      case (?list) { list };
+    };
+
+    let ownedData = filterSummariesByOwnership(caller, summaries);
+
+    let filtered = ownedData.values().filter(
+      func(s) {
+        s.timestamp >= startTime and s.timestamp <= endTime
+      }
+    );
+
+    filtered.toArray();
+  };
+
   // Example query functions for filtering in time range
   public query ({ caller }) func getBlinkRatesInTimeRange(deviceId : DeviceId, startTime : Timestamp, endTime : Timestamp) : async [BlinkRateMeasurement] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
@@ -246,18 +309,36 @@ actor {
     };
 
     let ownedData = filterByOwnership(caller, measurements);
-    
+
     let relevantData = ownedData.values().filter(
       func(m) {
         m.timestamp >= analysisWindowStart and m.timestamp <= analysisWindowEnd
       }
     );
 
-    if (relevantData.size() == 0 and not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: No data found for your device in the specified time range");
+    let hasData = relevantData.size() > 0 or AccessControl.isAdmin(accessControlState, caller);
+
+    // Check for blink summaries if no measurements are found
+    if (not hasData) {
+      let summaries = switch (blinkSummariesMap.get(deviceId)) {
+        case (null) { List.empty<BlinkSummary>() };
+        case (?list) { list };
+      };
+
+      let ownedSummaries = filterSummariesByOwnership(caller, summaries);
+
+      let relevantSummaries = ownedSummaries.values().filter(
+        func(s) {
+          s.timestamp >= analysisWindowStart and s.timestamp <= analysisWindowEnd
+        }
+      );
+
+      if (relevantSummaries.size() == 0) {
+        Runtime.trap("Unauthorized: No data found for your device in the specified time range");
+      };
     };
 
-    // In a real implementation, you'd analyze blink rates and vibration events here
+    // In a real implementation, you'd analyze blink rates, summaries, and vibration events here
     // For now, return a dummy recommendation
 
     {
@@ -293,6 +374,18 @@ actor {
           }
         );
         vibrationEventsMap.add(deviceId, filtered);
+      };
+      case (null) {};
+    };
+
+    switch (blinkSummariesMap.get(deviceId)) {
+      case (?summaries) {
+        let filtered = summaries.filter(
+          func(summary) {
+            summary.timestamp >= thresholdTime
+          }
+        );
+        blinkSummariesMap.add(deviceId, filtered);
       };
       case (null) {};
     };

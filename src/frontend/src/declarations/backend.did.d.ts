@@ -17,6 +17,15 @@ export interface BlinkRateMeasurement {
   'timestamp' : Timestamp,
   'blinkRate' : BlinkRate,
 }
+export interface BlinkSummary {
+  'averageBlinkRate' : [] | [bigint],
+  'maxBlinkRate' : [] | [bigint],
+  'totalBlinks' : bigint,
+  'userPrincipal' : [] | [Principal],
+  'deviceId' : DeviceId,
+  'timestamp' : Timestamp,
+  'minBlinkRate' : [] | [bigint],
+}
 export type DeviceId = string;
 export interface SleepRecommendation {
   'suggestedBedtime' : Timestamp,
@@ -49,6 +58,10 @@ export interface _SERVICE {
     [DeviceId, Timestamp, Timestamp],
     Array<BlinkRateMeasurement>
   >,
+  'getBlinkSummariesInTimeRange' : ActorMethod<
+    [DeviceId, Timestamp, Timestamp],
+    Array<BlinkSummary>
+  >,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
@@ -59,6 +72,7 @@ export interface _SERVICE {
   >,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'recordBlinkRate' : ActorMethod<[DeviceId, BlinkRate], undefined>,
+  'recordBlinkSummary' : ActorMethod<[DeviceId, BlinkSummary], undefined>,
   'recordVibrationEvent' : ActorMethod<[DeviceId], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
 }

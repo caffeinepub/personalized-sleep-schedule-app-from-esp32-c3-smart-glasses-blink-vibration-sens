@@ -2,10 +2,52 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-update-the-web-bluetooth-navigator-bluetooth-requestdevice-options-used-for-eye-r-so-the-scan-filter-targets-the-heart-rate-service-0x180d-rather-than-a-uart-based-device-name-e-g-uart-service-and-nordic-uart-optionalservices-6e400001-b5a3-f393-e0a9-e50e24dcca9e-ensure-the-filter-includes-service-0x180d-so-the-eye-r-device-can-be-discovered-when-it-advertises-heart-rate-and-keep-the-rest-of-the-connection-flow-working-with-gatt-notifications-on-service-0x180d",
-      "featureTitle": "Update the Web Bluetooth `navigator.bluetooth.requestDevice` options used for Eye-R so the scan/filter targets the Heart Rate service (0x180d) rather than a UART-based device name (e.g., \"UART Service\") and Nordic UART optionalServices (\"6e400001-b5a3-f393-e0a9-e50e24dcca9e\"). Ensure the filter includes service 0x180d so the Eye-R device can be discovered when it advertises Heart Rate, and keep the rest of the connection flow working with GATT notifications on service 0x180d.",
+      "featureId": "feature-disable-all-internet-computer-backend-connectivity-in-the-frontend-by-removing-usage-of-the-actor-internet-identity-auth-flow-from-the-running-app-no-actor-bootstrap-no-identity-based-gating-and-no-backend-queries-mutations-executed-at-runtime",
+      "featureTitle": "Disable all Internet Computer backend connectivity in the frontend by removing usage of the actor/Internet Identity/auth flow from the running app (no actor bootstrap, no identity-based gating, and no backend queries/mutations executed at runtime).",
       "files": [
-        "frontend/src/hooks/useEyeRBluetooth.ts",
+        "frontend/src/App.tsx",
+        "frontend/src/components/layout/AppHeader.tsx",
+        "frontend/src/components/profile/ProfileSetupDialog.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-1"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-remove-the-storage-unavailable-notification-ui-and-the-retry-button-logic-entirely-so-no-storage-actor-availability-popups-appear",
+      "featureTitle": "Remove the 'Storage unavailable' notification UI and the 'Retry' button logic entirely so no storage/actor availability popups appear.",
+      "files": [
+        "frontend/src/components/actor/ActorBootstrap.tsx",
+        "frontend/src/hooks/useActorBootstrap.ts"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-2"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-implement-local-first-persistence-for-blink-history-using-the-browser-s-localstorage-as-the-primary-only-storage-mechanism-for-blink-measurements-and-ensure-new-blink-readings-are-appended-to-this-local-storage-history",
+      "featureTitle": "Implement local-first persistence for blink history using the browser's `localStorage` as the primary/only storage mechanism for blink measurements, and ensure new blink readings are appended to this local storage history.",
+      "files": [
+        "frontend/src/hooks/useLocalBlinkHistory.ts",
+        "frontend/src/pages/Dashboard.tsx",
         "frontend/src/pages/DeviceConnection.tsx"
       ],
       "components": [
@@ -17,7 +59,49 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-14"
+        "REQ-3"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-fix-generate-schedule-so-it-reads-the-needed-blink-history-data-from-the-localstorage-backed-blink-history-not-from-any-backend-actor-source-and-completes-instantly-without-storage-related-errors",
+      "featureTitle": "Fix 'Generate Schedule' so it reads the needed blink history data from the `localStorage`-backed blink history (not from any backend/actor source) and completes instantly without storage-related errors.",
+      "files": [
+        "frontend/src/components/recommendation/SleepScheduleCard.tsx",
+        "frontend/src/pages/Dashboard.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-4"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-update-the-dashboard-session-tracking-flow-to-remove-backend-flush-logic-e-g-5-minute-summary-flush-to-actor-and-replace-any-saved-every-5-minutes-messaging-with-accurate-local-first-wording-aligned-to-localstorage-persistence",
+      "featureTitle": "Update the dashboard/session tracking flow to remove backend-flush logic (e.g., 5-minute summary flush to actor) and replace any 'saved every 5 minutes' messaging with accurate local-first wording aligned to localStorage persistence.",
+      "files": [
+        "frontend/src/hooks/useBleWriteQueue.ts",
+        "frontend/src/hooks/useBlinkSummaryFlush.ts",
+        "frontend/src/pages/Dashboard.tsx",
+        "frontend/src/pages/DeviceConnection.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-5"
       ],
       "confidence": "high"
     }

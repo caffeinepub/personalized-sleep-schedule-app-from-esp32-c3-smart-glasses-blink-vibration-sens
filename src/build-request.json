@@ -1,51 +1,110 @@
 {
   "kind": "build_request",
-  "title": "Update Web Bluetooth requestDevice filter to target Heart Rate service (0x180d) instead of UART Service",
+  "title": "Transition blink-tracking app to fully local-first storage and remove backend/actor bootstrap errors",
   "priority": "normal",
   "requirements": [
     {
-      "id": "REQ-14",
-      "text": "Update the Web Bluetooth `navigator.bluetooth.requestDevice` options used for Eye-R so the scan/filter targets the Heart Rate service (0x180d) rather than a UART-based device name (e.g., \"UART Service\") and Nordic UART optionalServices (\"6e400001-b5a3-f393-e0a9-e50e24dcca9e\"). Ensure the filter includes service 0x180d so the Eye-R device can be discovered when it advertises Heart Rate, and keep the rest of the connection flow working with GATT notifications on service 0x180d.",
+      "id": "REQ-1",
+      "text": "Disable all Internet Computer backend connectivity in the frontend by removing usage of the actor/Internet Identity/auth flow from the running app (no actor bootstrap, no identity-based gating, and no backend queries/mutations executed at runtime).",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-1"
+          "msg-4"
         ],
         "quotes": [
-          "Blink rate data will be received via GATT notifications on service 0x180d (Heart Rate)",
-          "Currently, it likely looks like this: filters: [{ services: [0x180d] }]",
-          "filters: [{ name: 'UART Service' }] ... optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e']"
+          "Disable Global Storage: Remove the authClient and createActor requirements. The app should not attempt to connect to the Internet Computer backend at all."
         ]
       },
       "acceptanceCriteria": [
-        "When clicking \"Connect Device\" on the Device Connection page, the browser’s device picker shows devices advertising the Heart Rate service (0x180d), without relying on the name \"UART Service\".",
-        "The requestDevice call no longer uses the Nordic UART optionalServices UUID \"6e400001-b5a3-f393-e0a9-e50e24dcca9e\" for the Eye-R connection path.",
-        "After selecting a compatible device, the app connects and continues subscribing to notifications for blink rate data via Heart Rate service 0x180d, as before."
+        "App loads and is usable without requiring Internet Identity login.",
+        "No UI components initialize or depend on `useActor()` / `useActorBootstrap()` at runtime (e.g., `ActorBootstrap` is not mounted from `App.tsx`).",
+        "The app no longer triggers any backend actor initialization or calls (e.g., no calls to functions in `frontend/src/hooks/useQueries.ts`, `useCurrentUserProfile.ts`, or `useBlinkSummaryFlush.ts` during normal use)."
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Remove the 'Storage unavailable' notification UI and the 'Retry' button logic entirely so no storage/actor availability popups appear.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Clear the Notification: Remove the 'Storage unavailable' popup and the 'Retry' button logic entirely."
+        ]
+      },
+      "acceptanceCriteria": [
+        "The 'Storage unavailable. Live data will continue locally.' popup is never rendered.",
+        "The 'Retry' button is removed and no longer triggers reload/retry behavior.",
+        "No 'Connecting to storage...' indicator is shown."
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Implement local-first persistence for blink history using the browser's `localStorage` as the primary/only storage mechanism for blink measurements, and ensure new blink readings are appended to this local storage history.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "LocalStorage Backup: Use the browser's localStorage to save my blink history. This way, my data stays on my computer and doesn't need an external database."
+        ]
+      },
+      "acceptanceCriteria": [
+        "Blink measurements are persisted to `localStorage` as they arrive from Bluetooth readings.",
+        "Refreshing the page does not erase previously recorded blink history.",
+        "If `localStorage` is unavailable or throws (e.g., privacy mode), the app continues working in-memory without showing any storage error popups."
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "Fix 'Generate Schedule' so it reads the needed blink history data from the `localStorage`-backed blink history (not from any backend/actor source) and completes instantly without storage-related errors.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Fix the Generator: Make sure the 'Generate Schedule' button pulls its data from this localStorage so it works instantly without errors."
+        ]
+      },
+      "acceptanceCriteria": [
+        "Clicking 'Generate Schedule' uses blink history loaded from `localStorage` as its data source.",
+        "The schedule generation path does not depend on backend actor availability and does not show 'Storage unavailable' or any retry UI.",
+        "Schedule generation completes without intentional delays and feels immediate (no simulated network wait)."
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "text": "Update the dashboard/session tracking flow to remove backend-flush logic (e.g., 5-minute summary flush to actor) and replace any 'saved every 5 minutes' messaging with accurate local-first wording aligned to localStorage persistence.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-4"
+        ],
+        "quotes": [
+          "Please fully transition the app to a Local-First model to stop this error"
+        ]
+      },
+      "acceptanceCriteria": [
+        "`useBlinkSummaryFlush` (or any actor-backed periodic flushing) is no longer used from the dashboard runtime path.",
+        "User-facing copy about saving reflects local-first behavior (saved locally on this device) and does not imply cloud/canister storage.",
+        "No runtime errors occur due to removal of backend-flush hooks when connected to a device and receiving blink readings."
       ]
     }
   ],
   "constraints": [
-    "Use English for all user-facing text.",
-    "Do not edit files under frontend/src/components/ui (read-only).",
-    "Do not modify Internet Identity hooks or other immutable paths listed in SYSTEM_CONTEXT."
+    "Do not modify files under `frontend/src/hooks/useInternetIdentity.ts` / `frontend/src/hooks/useInternetIdentity.tsx`, `frontend/src/hooks/useActor.ts`, `frontend/src/main.tsx`, or anything under `frontend/src/components/ui` (compose around these immutable paths instead).",
+    "Keep the backend single-actor Motoko canister unchanged unless strictly necessary; the app must not attempt to connect to it from the frontend."
   ],
   "nonGoals": [
-    "No backend/canister API changes.",
-    "No changes to blink-rate parsing logic beyond what is required to adjust requestDevice filtering.",
-    "No addition of new Bluetooth services/protocols (keep using Heart Rate service 0x180d for blink-rate notifications)."
+    "Implementing sync across devices or any cloud backup.",
+    "Adding third-party authentication providers or external databases.",
+    "Introducing realtime networking features (WebSockets, push, etc.)."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
-  },
-  "userProfileUpdate": {
-    "goalsToAdd": [],
-    "goalsToRemove": [],
-    "preferencesToAdd": [],
-    "preferencesToRemove": [],
-    "miscToAdd": [],
-    "miscToRemove": [],
-    "fieldsToSet": {},
-    "fieldsToDelete": []
   }
 }

@@ -1,11 +1,13 @@
 # Specification
 
 ## Summary
-**Goal:** Update the Eye-R Web Bluetooth device discovery to filter for the Heart Rate service (0x180d) instead of UART-based name/optionalServices, while keeping the existing Heart Rate notification flow working.
+**Goal:** Transition the blink-tracking app to a fully local-first model by removing all Internet Computer actor/Internet Identity runtime usage, eliminating storage availability UI, and persisting blink history in `localStorage`.
 
 **Planned changes:**
-- Update `navigator.bluetooth.requestDevice` options on the Device Connection flow to include a filter targeting the Heart Rate service (0x180d).
-- Remove reliance on a UART-based device name filter (e.g., "UART Service") and stop using the Nordic UART optionalServices UUID (`6e400001-b5a3-f393-e0a9-e50e24dcca9e`) for the Eye-R connection path.
-- Ensure the post-selection connection continues to subscribe to GATT notifications on Heart Rate service 0x180d as before.
+- Remove/disable all runtime frontend connectivity to the Internet Computer backend (no actor bootstrap, no Internet Identity login gating, and no backend queries/mutations executed during normal use).
+- Remove the “Storage unavailable” notification UI, including the “Retry” button logic and any “Connecting to storage…” indicator.
+- Persist blink measurement history locally using browser `localStorage` as the primary/only storage, appending new Bluetooth blink readings to stored history; gracefully fall back to in-memory if `localStorage` is unavailable without showing popups.
+- Update “Generate Schedule” to read blink history from the `localStorage`-backed data and complete immediately without storage-related errors or simulated delays.
+- Remove any backend-flush/periodic summary logic from the dashboard/session flow and update user-facing copy to reflect that data is saved locally on the device.
 
-**User-visible outcome:** Clicking “Connect Device” shows devices advertising the Heart Rate service (0x180d) in the browser picker, and after selection the app connects and continues receiving blink-rate notifications via Heart Rate (0x180d).
+**User-visible outcome:** The app loads and works without Internet Identity or any backend connectivity, blink history persists across refreshes via `localStorage`, schedule generation works instantly from local data, and no storage/connection error popups or retry UI appear.

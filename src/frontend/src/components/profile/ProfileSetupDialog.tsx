@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { useSaveCallerUserProfile } from '../../hooks/useQueries';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,19 +6,18 @@ import { Button } from '@/components/ui/button';
 import { User } from 'lucide-react';
 
 export default function ProfileSetupDialog() {
+  // Deprecated: No longer used in local-first mode
+  // Kept for compatibility but should not be rendered
   const [name, setName] = useState('');
-  const saveProfile = useSaveCallerUserProfile();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim()) {
-      await saveProfile.mutateAsync({ name: name.trim() });
-    }
+    // No-op: no backend profile to save
   };
 
   return (
-    <Dialog open={true}>
-      <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+    <Dialog open={false}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <User className="h-5 w-5" />
@@ -41,8 +39,8 @@ export default function ProfileSetupDialog() {
               required
             />
           </div>
-          <Button type="submit" className="w-full" disabled={!name.trim() || saveProfile.isPending}>
-            {saveProfile.isPending ? 'Saving...' : 'Continue'}
+          <Button type="submit" className="w-full" disabled={!name.trim()}>
+            Continue
           </Button>
         </form>
       </DialogContent>
