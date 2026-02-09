@@ -1,83 +1,33 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Blink-tracking app transitioning to a fully local-first model (no Internet Computer backend) using browser localStorage for blink history and schedule generation, removing storage error UI.",
-  "architectural_notes": [
-    "Adopt a local-first architecture: no Internet Computer backend connectivity; persist and read app data from browser localStorage."
-  ],
+  "summary": "Project 'Eye-R' with live canister deployment; user reports live deployment stuck and requests forced rebuild and redeploy with explicit build error reporting if it fails.",
+  "architectural_notes": [],
   "known_issues": [
-    "User still encounters 'Storage unavailable' error in current build."
+    "Live canister deployment is stuck; needs forced rebuild and redeploy. If build fails, capture and report exact build error."
   ],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-disable-all-internet-computer-backend-connectivity-in-the-frontend-by-removing-usage-of-the-actor-internet-identity-auth-flow-from-the-running-app-no-actor-bootstrap-no-identity-based-gating-and-no-backend-queries-mutations-executed-at-runtime",
-      "title": "Disable all Internet Computer backend connectivity in the frontend by removing usage of the actor/Internet Identity/auth flow from the running app (no actor bootstrap, no identity-based gating, and no backend queries/mutations executed at runtime).",
+      "id": "feature-force-a-clean-rebuild-of-the-eye-r-project-frontend-backend-and-redeploy-the-resulting-build-artifacts-to-the-live-canister-not-draft",
+      "title": "Force a clean rebuild of the Eye-R project (frontend + backend) and redeploy the resulting build artifacts to the live canister (not draft).",
       "reqIds": [
         "REQ-1"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-remove-the-storage-unavailable-notification-ui-and-the-retry-button-logic-entirely-so-no-storage-actor-availability-popups-appear",
-      "title": "Remove the 'Storage unavailable' notification UI and the 'Retry' button logic entirely so no storage/actor availability popups appear.",
-      "reqIds": [
-        "REQ-2"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-implement-local-first-persistence-for-blink-history-using-the-browser-s-localstorage-as-the-primary-only-storage-mechanism-for-blink-measurements-and-ensure-new-blink-readings-are-appended-to-this-local-storage-history",
-      "title": "Implement local-first persistence for blink history using the browser's `localStorage` as the primary/only storage mechanism for blink measurements, and ensure new blink readings are appended to this local storage history.",
-      "reqIds": [
-        "REQ-3"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-fix-generate-schedule-so-it-reads-the-needed-blink-history-data-from-the-localstorage-backed-blink-history-not-from-any-backend-actor-source-and-completes-instantly-without-storage-related-errors",
-      "title": "Fix 'Generate Schedule' so it reads the needed blink history data from the `localStorage`-backed blink history (not from any backend/actor source) and completes instantly without storage-related errors.",
-      "reqIds": [
-        "REQ-4"
-      ],
-      "version": 1
-    },
-    {
-      "id": "feature-update-the-dashboard-session-tracking-flow-to-remove-backend-flush-logic-e-g-5-minute-summary-flush-to-actor-and-replace-any-saved-every-5-minutes-messaging-with-accurate-local-first-wording-aligned-to-localstorage-persistence",
-      "title": "Update the dashboard/session tracking flow to remove backend-flush logic (e.g., 5-minute summary flush to actor) and replace any 'saved every 5 minutes' messaging with accurate local-first wording aligned to localStorage persistence.",
-      "reqIds": [
-        "REQ-5"
       ],
       "version": 1
     }
   ],
   "new_feature_requests": [
     {
-      "id": "AR-1",
-      "summary": "Disable global storage/Internet Computer backend usage by removing authClient/createActor and any network calls",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
       "id": "AR-2",
-      "summary": "Persist blink history to browser localStorage as the primary/only storage (local-first)",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-3",
-      "summary": "Remove 'Storage unavailable' popup and delete 'Retry' button logic entirely",
-      "reqIds": [],
-      "status": "pending"
-    },
-    {
-      "id": "AR-4",
-      "summary": "Update 'Generate Schedule' to read from localStorage-backed blink history so it works instantly without errors",
-      "reqIds": [],
+      "summary": "If the rebuild or redeploy fails, capture and present the exact build/deploy error output (verbatim) including the failing command, exit code, and the full compiler/toolchain error text so it can be used to diagnose and fix the issue.",
+      "reqIds": [
+        "REQ-2"
+      ],
       "status": "pending"
     }
   ],
-  "projectName": "Transition blink-tracking app to fully local-first storage and remove backend/actor bootstrap errors",
+  "projectName": "Eye-R",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

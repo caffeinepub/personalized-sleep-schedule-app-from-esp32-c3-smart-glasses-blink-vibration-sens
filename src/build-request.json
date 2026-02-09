@@ -1,107 +1,52 @@
 {
   "kind": "build_request",
-  "title": "Transition blink-tracking app to fully local-first storage and remove backend/actor bootstrap errors",
-  "priority": "normal",
+  "title": "Force clean rebuild and redeploy Eye-R to live canister with exact error reporting",
+  "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Disable all Internet Computer backend connectivity in the frontend by removing usage of the actor/Internet Identity/auth flow from the running app (no actor bootstrap, no identity-based gating, and no backend queries/mutations executed at runtime).",
-      "target": "frontend",
+      "text": "Force a clean rebuild of the Eye-R project (frontend + backend) and redeploy the resulting build artifacts to the live canister (not draft).",
+      "target": "both",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-1"
         ],
         "quotes": [
-          "Disable Global Storage: Remove the authClient and createActor requirements. The app should not attempt to connect to the Internet Computer backend at all."
+          "The live deployment is stuck. Please force a rebuild of the 'Eye-R' project and push it to the live canister again."
         ]
       },
       "acceptanceCriteria": [
-        "App loads and is usable without requiring Internet Identity login.",
-        "No UI components initialize or depend on `useActor()` / `useActorBootstrap()` at runtime (e.g., `ActorBootstrap` is not mounted from `App.tsx`).",
-        "The app no longer triggers any backend actor initialization or calls (e.g., no calls to functions in `frontend/src/hooks/useQueries.ts`, `useCurrentUserProfile.ts`, or `useBlinkSummaryFlush.ts` during normal use)."
+        "A clean build is executed (no cached artifacts relied upon) for both the Motoko backend and React frontend.",
+        "The live canister is updated with the newly built WASM/assets for project 'Eye-R'.",
+        "Post-deploy, the live URL loads the latest frontend and backend canister responds to calls (basic smoke test)."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Remove the 'Storage unavailable' notification UI and the 'Retry' button logic entirely so no storage/actor availability popups appear.",
-      "target": "frontend",
+      "text": "If the rebuild or redeploy fails, capture and present the exact build/deploy error output (verbatim) including the failing command, exit code, and the full compiler/toolchain error text so it can be used to diagnose and fix the issue.",
+      "target": "unknown",
       "source": {
         "messageIds": [
-          "msg-4"
+          "msg-1"
         ],
         "quotes": [
-          "Clear the Notification: Remove the 'Storage unavailable' popup and the 'Retry' button logic entirely."
+          "If there is a build error, please tell me exactly what it is so we can fix it."
         ]
       },
       "acceptanceCriteria": [
-        "The 'Storage unavailable. Live data will continue locally.' popup is never rendered.",
-        "The 'Retry' button is removed and no longer triggers reload/retry behavior.",
-        "No 'Connecting to storage...' indicator is shown."
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "text": "Implement local-first persistence for blink history using the browser's `localStorage` as the primary/only storage mechanism for blink measurements, and ensure new blink readings are appended to this local storage history.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-4"
-        ],
-        "quotes": [
-          "LocalStorage Backup: Use the browser's localStorage to save my blink history. This way, my data stays on my computer and doesn't need an external database."
-        ]
-      },
-      "acceptanceCriteria": [
-        "Blink measurements are persisted to `localStorage` as they arrive from Bluetooth readings.",
-        "Refreshing the page does not erase previously recorded blink history.",
-        "If `localStorage` is unavailable or throws (e.g., privacy mode), the app continues working in-memory without showing any storage error popups."
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "text": "Fix 'Generate Schedule' so it reads the needed blink history data from the `localStorage`-backed blink history (not from any backend/actor source) and completes instantly without storage-related errors.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-4"
-        ],
-        "quotes": [
-          "Fix the Generator: Make sure the 'Generate Schedule' button pulls its data from this localStorage so it works instantly without errors."
-        ]
-      },
-      "acceptanceCriteria": [
-        "Clicking 'Generate Schedule' uses blink history loaded from `localStorage` as its data source.",
-        "The schedule generation path does not depend on backend actor availability and does not show 'Storage unavailable' or any retry UI.",
-        "Schedule generation completes without intentional delays and feels immediate (no simulated network wait)."
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "text": "Update the dashboard/session tracking flow to remove backend-flush logic (e.g., 5-minute summary flush to actor) and replace any 'saved every 5 minutes' messaging with accurate local-first wording aligned to localStorage persistence.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-4"
-        ],
-        "quotes": [
-          "Please fully transition the app to a Local-First model to stop this error"
-        ]
-      },
-      "acceptanceCriteria": [
-        "`useBlinkSummaryFlush` (or any actor-backed periodic flushing) is no longer used from the dashboard runtime path.",
-        "User-facing copy about saving reflects local-first behavior (saved locally on this device) and does not imply cloud/canister storage.",
-        "No runtime errors occur due to removal of backend-flush hooks when connected to a device and receiving blink readings."
+        "On failure, the report includes: (1) the exact step that failed, (2) the exact command executed, (3) the full stdout/stderr output, and (4) the exit code.",
+        "No error text is paraphrased; the original error output is preserved verbatim."
       ]
     }
   ],
   "constraints": [
-    "Do not modify files under `frontend/src/hooks/useInternetIdentity.ts` / `frontend/src/hooks/useInternetIdentity.tsx`, `frontend/src/hooks/useActor.ts`, `frontend/src/main.tsx`, or anything under `frontend/src/components/ui` (compose around these immutable paths instead).",
-    "Keep the backend single-actor Motoko canister unchanged unless strictly necessary; the app must not attempt to connect to it from the frontend."
+    "Use English for any user-facing text.",
+    "Backend must remain a single Motoko actor in backend/main.mo; only add backend/migration.mo if a state upgrade is required by code changes.",
+    "Do not edit files under frontend/src/components/ui or any paths listed in frontend.immutablePaths."
   ],
   "nonGoals": [
-    "Implementing sync across devices or any cloud backup.",
-    "Adding third-party authentication providers or external databases.",
-    "Introducing realtime networking features (WebSockets, push, etc.)."
+    "Implementing new product features unrelated to unblocking deployment.",
+    "Changing application behavior (blink detection, UI labels, etc.) unless required to fix a build failure discovered during rebuild."
   ],
   "imageRequirements": {
     "required": [],

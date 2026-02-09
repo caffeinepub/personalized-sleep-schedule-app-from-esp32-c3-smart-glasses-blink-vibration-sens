@@ -97,8 +97,8 @@ export default function BlinkRateChart({ data, title = 'Blink Rate History' }: B
     ctx.fillStyle = 'oklch(0.45 0.05 200)';
     ctx.font = '12px Inter, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText(`${maxRate} bpm`, 5, padding + 12);
-    ctx.fillText(`${minRate} bpm`, 5, padding + plotHeight);
+    ctx.fillText(`${maxRate} blinks/min`, 5, padding + 12);
+    ctx.fillText(`${minRate} blinks/min`, 5, padding + plotHeight);
 
   }, [data]);
 

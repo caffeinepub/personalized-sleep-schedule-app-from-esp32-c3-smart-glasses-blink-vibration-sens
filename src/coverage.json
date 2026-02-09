@@ -1,106 +1,54 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-09T11:19:16.736Z",
+  "generatedAt": "2026-02-09T12:18:29.609Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 5,
-    "implemented": 5,
+    "total": 2,
+    "implemented": 1,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Disable all Internet Computer backend connectivity in the frontend by removing usage of the actor/Internet Identity/auth flow from the running app (no actor bootstrap, no identity-based gating, and no backend queries/mutations executed at runtime).",
+        "summary": "Force a clean rebuild of the Eye-R project (frontend + backend) and redeploy the resulting build artifacts to the live canister (not draft).",
         "status": "implemented",
         "plannedFiles": [
+          "frontend/src/pages/SmokeTest.tsx",
           "frontend/src/App.tsx",
           "frontend/src/components/layout/AppHeader.tsx",
-          "frontend/src/components/profile/ProfileSetupDialog.tsx"
+          "frontend/scripts/clean-rebuild-redeploy.mjs",
+          "frontend/DEPLOYMENT.md"
         ],
         "matchedFiles": [
+          "frontend/src/pages/SmokeTest.tsx",
           "frontend/src/App.tsx",
-          "frontend/src/components/layout/AppHeader.tsx",
-          "frontend/src/components/profile/ProfileSetupDialog.tsx"
+          "frontend/src/components/layout/AppHeader.tsx"
         ]
       },
       {
         "id": "REQ-2",
-        "summary": "Remove the 'Storage unavailable' notification UI and the 'Retry' button logic entirely so no storage/actor availability popups appear.",
-        "status": "implemented",
+        "summary": "If the rebuild or redeploy fails, capture and present the exact build/deploy error output (verbatim) including the failing command, exit code, and the full compiler/toolchain error text so it can be used to diagnose and fix the issue.",
+        "status": "missing",
         "plannedFiles": [
-          "frontend/src/components/actor/ActorBootstrap.tsx",
-          "frontend/src/hooks/useActorBootstrap.ts"
+          "frontend/scripts/run-step-with-verbatim-log.mjs",
+          "frontend/scripts/clean-rebuild-redeploy.mjs",
+          "frontend/DEPLOYMENT.md"
         ],
-        "matchedFiles": [
-          "frontend/src/components/actor/ActorBootstrap.tsx",
-          "frontend/src/hooks/useActorBootstrap.ts"
-        ]
-      },
-      {
-        "id": "REQ-3",
-        "summary": "Implement local-first persistence for blink history using the browser's `localStorage` as the primary/only storage mechanism for blink measurements, and ensure new blink readings are appended to this local storage history.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/hooks/useLocalBlinkHistory.ts",
-          "frontend/src/pages/Dashboard.tsx",
-          "frontend/src/pages/DeviceConnection.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/hooks/useLocalBlinkHistory.ts",
-          "frontend/src/pages/Dashboard.tsx",
-          "frontend/src/pages/DeviceConnection.tsx"
-        ]
-      },
-      {
-        "id": "REQ-4",
-        "summary": "Fix 'Generate Schedule' so it reads the needed blink history data from the `localStorage`-backed blink history (not from any backend/actor source) and completes instantly without storage-related errors.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/Dashboard.tsx",
-          "frontend/src/components/recommendation/SleepScheduleCard.tsx"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/Dashboard.tsx",
-          "frontend/src/components/recommendation/SleepScheduleCard.tsx"
-        ]
-      },
-      {
-        "id": "REQ-5",
-        "summary": "Update the dashboard/session tracking flow to remove backend-flush logic (e.g., 5-minute summary flush to actor) and replace any 'saved every 5 minutes' messaging with accurate local-first wording aligned to localStorage persistence.",
-        "status": "implemented",
-        "plannedFiles": [
-          "frontend/src/pages/Dashboard.tsx",
-          "frontend/src/pages/DeviceConnection.tsx",
-          "frontend/src/hooks/useBlinkSummaryFlush.ts",
-          "frontend/src/hooks/useBleWriteQueue.ts"
-        ],
-        "matchedFiles": [
-          "frontend/src/pages/Dashboard.tsx",
-          "frontend/src/pages/DeviceConnection.tsx",
-          "frontend/src/hooks/useBlinkSummaryFlush.ts",
-          "frontend/src/hooks/useBleWriteQueue.ts"
-        ]
+        "matchedFiles": []
       }
     ]
   },
   "changedFiles": [
+    "backend/main.mo",
     "build-request.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
     "frontend/src/App.tsx",
-    "frontend/src/components/actor/ActorBootstrap.tsx",
     "frontend/src/components/layout/AppHeader.tsx",
-    "frontend/src/components/profile/ProfileSetupDialog.tsx",
-    "frontend/src/components/recommendation/SleepScheduleCard.tsx",
-    "frontend/src/hooks/useActorBootstrap.ts",
-    "frontend/src/hooks/useBleWriteQueue.ts",
-    "frontend/src/hooks/useBlinkSummaryFlush.ts",
-    "frontend/src/hooks/useLocalBlinkHistory.ts",
-    "frontend/src/pages/Dashboard.tsx",
-    "frontend/src/pages/DeviceConnection.tsx",
+    "frontend/src/pages/SmokeTest.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

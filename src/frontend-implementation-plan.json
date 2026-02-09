@@ -1,130 +1,66 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Blink-tracking app: fully local-first (localStorage) runtime with IC connectivity disabled",
+  "title": "Eye-R frontend deployment diagnostics (clean rebuild, smoke test, verbatim error reporting)",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Remove runtime Internet Identity/actor bootstrap usage so the app never initializes or calls the IC backend during normal use.",
+      "summary": "Add a frontend-accessible smoke test view and a clean rebuild/redeploy helper script to support verifying a fresh live deployment.",
       "acceptanceCriteria": [
-        "App loads and is usable without requiring Internet Identity login.",
-        "No UI components initialize or depend on `useActor()` / `useActorBootstrap()` at runtime (e.g., `ActorBootstrap` is not mounted from `App.tsx`).",
-        "The app no longer triggers any backend actor initialization or calls (e.g., no calls to functions in `frontend/src/hooks/useQueries.ts`, `useCurrentUserProfile.ts`, or `useBlinkSummaryFlush.ts` during normal use)."
+        "A clean build is executed (no cached artifacts relied upon) for both the Motoko backend and React frontend.",
+        "The live canister is updated with the newly built WASM/assets for project 'Eye-R'.",
+        "Post-deploy, the live URL loads the latest frontend and backend canister responds to calls (basic smoke test)."
       ],
       "file_operations": [
         {
+          "path": "frontend/src/pages/SmokeTest.tsx",
+          "operation": "create",
+          "description": "Create a Smoke Test page that performs a basic read call via the existing actor (e.g., role/profile queries) and renders clear PASS/FAIL status plus any thrown error text verbatim to help verify post-deploy connectivity."
+        },
+        {
           "path": "frontend/src/App.tsx",
           "operation": "modify",
-          "description": "Remove Internet Identity / user profile bootstrap (`useInternetIdentity`, `useGetCallerUserProfile`, `ProfileSetupDialog`) and stop mounting `ActorBootstrap`; keep only the Bluetooth provider + layout/router so the app runs fully offline."
+          "description": "Register a new TanStack Router route for the Smoke Test page (e.g., /smoke-test) so it is reachable for post-deploy verification."
         },
         {
           "path": "frontend/src/components/layout/AppHeader.tsx",
           "operation": "modify",
-          "description": "Remove identity-dependent UI (`useInternetIdentity`, `useGetCallerUserProfile`, `LoginButton`) so the header never triggers authentication or backend-dependent queries during rendering."
+          "description": "Wire a navigation link to the Smoke Test route so the check is easily discoverable after deployment."
         },
         {
-          "path": "frontend/src/components/profile/ProfileSetupDialog.tsx",
-          "operation": "modify",
-          "description": "Decouple from backend profile saving by removing `useSaveCallerUserProfile` usage; adjust to either not render (preferred via App.tsx changes) or to no-op safely if it remains imported somewhere."
+          "path": "frontend/scripts/clean-rebuild-redeploy.mjs",
+          "operation": "create",
+          "description": "Add a Node script (invoked manually) that runs a clean rebuild and redeploy workflow by orchestrating the necessary shell commands (including cache removal for frontend build artifacts) and then runs the frontend smoke test instructions for the live URL. Ensure the script is safe-by-default and does not change app runtime behavior."
+        },
+        {
+          "path": "frontend/DEPLOYMENT.md",
+          "operation": "create",
+          "description": "Document the clean rebuild + live redeploy procedure, including how to run the clean rebuild/redeploy script and how to use the Smoke Test route on the live URL for a basic verification."
         }
       ]
     },
     {
       "id": "REQ-2",
-      "summary": "Eliminate all storage/actor availability notification UI (including retry/reload logic and connecting indicators).",
+      "summary": "Provide a verbatim build/redeploy failure report generator that captures the failing command, exit code, and full stdout/stderr output.",
       "acceptanceCriteria": [
-        "The 'Storage unavailable. Live data will continue locally.' popup is never rendered.",
-        "The 'Retry' button is removed and no longer triggers reload/retry behavior.",
-        "No 'Connecting to storage...' indicator is shown."
+        "On failure, the report includes: (1) the exact step that failed, (2) the exact command executed, (3) the full stdout/stderr output, and (4) the exit code.",
+        "No error text is paraphrased; the original error output is preserved verbatim."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/components/actor/ActorBootstrap.tsx",
-          "operation": "modify",
-          "description": "Remove all UI that shows initialization state, 'Connecting to storage…', 'Storage unavailable…', and the Retry button; convert to a simple passthrough wrapper (or a deprecated component) that only renders children without calling actor/bootstrap hooks."
-        },
-        {
-          "path": "frontend/src/hooks/useActorBootstrap.ts",
-          "operation": "modify",
-          "description": "Remove manual retry (window reload) and any derived error/initializing semantics tied to actor availability; ensure this hook is inert if it remains in the codebase (and ideally unused)."
-        }
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "summary": "Persist blink measurements locally (localStorage primary) and append new Bluetooth readings to the stored history with safe in-memory fallback.",
-      "acceptanceCriteria": [
-        "Blink measurements are persisted to `localStorage` as they arrive from Bluetooth readings.",
-        "Refreshing the page does not erase previously recorded blink history.",
-        "If `localStorage` is unavailable or throws (e.g., privacy mode), the app continues working in-memory without showing any storage error popups."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/hooks/useLocalBlinkHistory.ts",
+          "path": "frontend/scripts/run-step-with-verbatim-log.mjs",
           "operation": "create",
-          "description": "Create a local-first blink history hook that (1) loads persisted history from `localStorage` on start, (2) appends new measurements with timestamp, (3) uses try/catch around all `localStorage` access, and (4) falls back to an in-memory store when persistence is unavailable."
+          "description": "Create a small Node helper that executes a single shell command, captures full stdout/stderr verbatim, records the exit code, and writes a structured, copy-pastable failure report to the console and an output file."
         },
         {
-          "path": "frontend/src/pages/Dashboard.tsx",
+          "path": "frontend/scripts/clean-rebuild-redeploy.mjs",
           "operation": "modify",
-          "description": "On each Bluetooth blink reading, append the measurement to the `localStorage`-backed history via `useLocalBlinkHistory`; ensure the dashboard can render using persisted history after refresh and continues to function if persistence fails."
+          "description": "Integrate the verbatim logging helper so each rebuild/redeploy step is executed through it and failures emit an exact report including step name, exact command, full stdout/stderr, and exit code (no paraphrasing)."
         },
         {
-          "path": "frontend/src/pages/DeviceConnection.tsx",
+          "path": "frontend/DEPLOYMENT.md",
           "operation": "modify",
-          "description": "On each Bluetooth blink reading, append the measurement to the same `localStorage`-backed history (so persistence works even when the user stays on the Devices page)."
-        }
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "summary": "Make 'Generate Schedule' compute from the localStorage-backed blink history instantly, with no backend dependency or artificial delays.",
-      "acceptanceCriteria": [
-        "Clicking 'Generate Schedule' uses blink history loaded from `localStorage` as its data source.",
-        "The schedule generation path does not depend on backend actor availability and does not show 'Storage unavailable' or any retry UI.",
-        "Schedule generation completes without intentional delays and feels immediate (no simulated network wait)."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/pages/Dashboard.tsx",
-          "operation": "modify",
-          "description": "Replace the schedule generation path to derive required metrics (e.g., last-5-minute rolling average and recency) from the persisted local blink history provided by `useLocalBlinkHistory`; remove the `setTimeout` delay so generation is immediate."
-        },
-        {
-          "path": "frontend/src/components/recommendation/SleepScheduleCard.tsx",
-          "operation": "modify",
-          "description": "Ensure UI state (button enabled/disabled, 'No recent data' messaging) is driven by local-history-derived recency/point counts rather than any backend/actor state; keep copy aligned with local-first behavior."
-        }
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "summary": "Remove backend periodic flush logic and update dashboard/device copy to reflect local-first (saved locally on this device).",
-      "acceptanceCriteria": [
-        "`useBlinkSummaryFlush` (or any actor-backed periodic flushing) is no longer used from the dashboard runtime path.",
-        "User-facing copy about saving reflects local-first behavior (saved locally on this device) and does not imply cloud/canister storage.",
-        "No runtime errors occur due to removal of backend-flush hooks when connected to a device and receiving blink readings."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/pages/Dashboard.tsx",
-          "operation": "modify",
-          "description": "Remove `useBlinkSummaryFlush` usage and associated 'saved every 5 minutes' / 'Next Save' UI; replace with local-first status (e.g., 'Saved locally on this device') derived from local history append events."
-        },
-        {
-          "path": "frontend/src/pages/DeviceConnection.tsx",
-          "operation": "modify",
-          "description": "Remove `useBlinkSummaryFlush` usage and any cloud/5-minute save messaging; replace with accurate local-first messaging indicating blink data is stored locally as readings arrive."
-        },
-        {
-          "path": "frontend/src/hooks/useBlinkSummaryFlush.ts",
-          "operation": "modify",
-          "description": "Deprecate the actor-flush implementation by removing actor usage and timer-based backend writes; keep the module from performing any backend calls if it remains referenced accidentally (but the app should stop importing it in runtime paths)."
-        },
-        {
-          "path": "frontend/src/hooks/useBleWriteQueue.ts",
-          "operation": "modify",
-          "description": "Prevent any backend write attempts by removing actor usage and ensuring `flushQueue` becomes a safe no-op (or is clearly deprecated); this avoids accidental runtime backend calls if referenced elsewhere."
+          "description": "Add a troubleshooting section describing where to find the verbatim failure report output file, and how to share it for diagnosis without modification."
         }
       ]
     }

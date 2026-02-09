@@ -1,13 +1,12 @@
 # Specification
 
 ## Summary
-**Goal:** Transition the blink-tracking app to a fully local-first model by removing all Internet Computer actor/Internet Identity runtime usage, eliminating storage availability UI, and persisting blink history in `localStorage`.
+**Goal:** Unblock the stuck live deployment by forcing a clean rebuild of the Eye-R frontend and backend and redeploying the freshly built artifacts to the live canister, with verbatim error reporting if anything fails.
 
 **Planned changes:**
-- Remove/disable all runtime frontend connectivity to the Internet Computer backend (no actor bootstrap, no Internet Identity login gating, and no backend queries/mutations executed during normal use).
-- Remove the “Storage unavailable” notification UI, including the “Retry” button logic and any “Connecting to storage…” indicator.
-- Persist blink measurement history locally using browser `localStorage` as the primary/only storage, appending new Bluetooth blink readings to stored history; gracefully fall back to in-memory if `localStorage` is unavailable without showing popups.
-- Update “Generate Schedule” to read blink history from the `localStorage`-backed data and complete immediately without storage-related errors or simulated delays.
-- Remove any backend-flush/periodic summary logic from the dashboard/session flow and update user-facing copy to reflect that data is saved locally on the device.
+- Run a clean (no-cache) build for both the Motoko backend and React frontend.
+- Redeploy the newly built WASM and frontend assets to the **live** canister (not draft).
+- Add a post-deploy smoke test to confirm the live URL loads and the backend canister responds to basic calls.
+- If any build/deploy step fails, capture and present verbatim failure details: failing step, exact command, full stdout/stderr, and exit code.
 
-**User-visible outcome:** The app loads and works without Internet Identity or any backend connectivity, blink history persists across refreshes via `localStorage`, schedule generation works instantly from local data, and no storage/connection error popups or retry UI appear.
+**User-visible outcome:** The live Eye-R URL loads the latest frontend and the live backend canister responds; if deployment fails, the exact build/deploy error output is available for diagnosis.

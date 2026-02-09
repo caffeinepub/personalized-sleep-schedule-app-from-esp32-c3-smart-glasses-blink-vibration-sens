@@ -2,6 +2,7 @@ import AppLayout from './components/layout/AppLayout';
 import Dashboard from './pages/Dashboard';
 import DeviceDataIngestion from './pages/DeviceDataIngestion';
 import DeviceConnection from './pages/DeviceConnection';
+import SmokeTest from './pages/SmokeTest';
 import { BluetoothProvider } from './contexts/BluetoothContext';
 import { createRouter, createRoute, createRootRoute, RouterProvider } from '@tanstack/react-router';
 
@@ -35,7 +36,13 @@ const ingestionRoute = createRoute({
   component: DeviceDataIngestion
 });
 
-const routeTree = rootRoute.addChildren([dashboardRoute, deviceConnectionRoute, ingestionRoute]);
+const smokeTestRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/smoke-test',
+  component: SmokeTest
+});
+
+const routeTree = rootRoute.addChildren([dashboardRoute, deviceConnectionRoute, ingestionRoute, smokeTestRoute]);
 
 const router = createRouter({ routeTree });
 

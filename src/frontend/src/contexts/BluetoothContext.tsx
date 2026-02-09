@@ -29,10 +29,18 @@ interface ConnectOptions {
   useCustomProfile?: boolean;
 }
 
+interface BlinkTimestamp {
+  timestamp: number;
+}
+
 const BluetoothContext = createContext<BluetoothContextValue | undefined>(undefined);
 
 const MIN_CONNECTION_INTERVAL_MS = 2000;
 const MTU_EXCHANGE_DELAY_MS = 500;
+
+// Blink detection configuration
+const BLINK_THRESHOLD = 30; // Values below this are considered a blink
+const ROLLING_WINDOW_MS = 60000; // 60 seconds
 
 function toServiceString(uuid: string | number): string {
   if (typeof uuid === 'number') {
@@ -60,6 +68,10 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const attemptTokenRef = useRef<number>(0);
 
+  // Blink detection state
+  const blinkTimestampsRef = useRef<BlinkTimestamp[]>([]);
+  const isBlinkingRef = useRef<boolean>(false); // State guard to prevent multiple counts
+
   const setOnBlinkRateChange = useCallback((callback: (blinkRate: number) => void) => {
     onBlinkRateChangeRef.current = callback;
   }, []);
@@ -70,6 +82,7 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     
     if (!value) return;
 
+    // Decode as UTF-8 text for raw display
     let decodedText = '';
     try {
       const decoder = new TextDecoder('utf-8');
@@ -79,21 +92,50 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
       console.warn('Failed to decode as UTF-8 text:', err);
     }
 
-    let blinkRate: number | null = null;
+    // Parse the raw sensor value
+    let rawSensorValue: number | null = null;
     if (decodedText) {
-      blinkRate = parseBlinkRateFromText(decodedText);
+      rawSensorValue = parseBlinkRateFromText(decodedText);
     }
 
-    if (blinkRate === null) {
-      blinkRate = parseNusBlinkRate(value);
+    if (rawSensorValue === null) {
+      rawSensorValue = parseNusBlinkRate(value);
     }
     
-    if (blinkRate === null) {
-      blinkRate = parseHeartRateBlinkRate(value);
+    if (rawSensorValue === null) {
+      rawSensorValue = parseHeartRateBlinkRate(value);
     }
 
-    if (blinkRate !== null && onBlinkRateChangeRef.current) {
-      onBlinkRateChangeRef.current(blinkRate);
+    if (rawSensorValue === null) return;
+
+    // Blink detection logic
+    const now = Date.now();
+    
+    // Check if this is a blink (value below threshold)
+    if (rawSensorValue < BLINK_THRESHOLD) {
+      // Only count if we're not already in a blink state (state guard)
+      if (!isBlinkingRef.current) {
+        isBlinkingRef.current = true;
+        blinkTimestampsRef.current.push({ timestamp: now });
+        console.log(`Blink detected! Raw value: ${rawSensorValue}, Total blinks in window: ${blinkTimestampsRef.current.length}`);
+      }
+    } else {
+      // Value is above threshold, reset the blink state
+      isBlinkingRef.current = false;
+    }
+
+    // Prune timestamps older than 60 seconds
+    const cutoffTime = now - ROLLING_WINDOW_MS;
+    blinkTimestampsRef.current = blinkTimestampsRef.current.filter(
+      (blink) => blink.timestamp >= cutoffTime
+    );
+
+    // Calculate blinks per minute (count of blinks in the last 60 seconds)
+    const blinksInWindow = blinkTimestampsRef.current.length;
+
+    // Emit the computed blink rate
+    if (onBlinkRateChangeRef.current) {
+      onBlinkRateChangeRef.current(blinksInWindow);
     }
   }, []);
 
@@ -143,6 +185,10 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     isConnectingRef.current = false;
     setConnectionState('disconnected');
     setLatestReading(null);
+    
+    // Reset blink detection state
+    blinkTimestampsRef.current = [];
+    isBlinkingRef.current = false;
   }, [cleanupConnection]);
 
   useEffect(() => {
@@ -289,6 +335,10 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     setError(null);
     setConnectionState('connecting');
     notificationsEnabledRef.current = false;
+
+    // Reset blink detection state on new connection
+    blinkTimestampsRef.current = [];
+    isBlinkingRef.current = false;
 
     const isCustomMode = useCustomProfile || !serviceUUID || serviceUUID.toString().trim() === '';
     

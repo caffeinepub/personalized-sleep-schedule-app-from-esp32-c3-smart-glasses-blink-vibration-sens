@@ -9,7 +9,7 @@ export default function AppHeader() {
           <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <Activity className="h-8 w-8 text-primary" />
             <div>
-              <h1 className="text-xl font-bold text-foreground">Sleep Tracker</h1>
+              <h1 className="text-xl font-bold text-foreground">Eye-R</h1>
               <p className="text-xs text-muted-foreground">Local-First Blink Monitoring</p>
             </div>
           </Link>
@@ -35,6 +35,13 @@ export default function AppHeader() {
               activeProps={{ className: 'text-foreground' }}
             >
               API Docs
+            </Link>
+            <Link
+              to="/smoke-test"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              activeProps={{ className: 'text-foreground' }}
+            >
+              Smoke Test
             </Link>
           </nav>
         </div>

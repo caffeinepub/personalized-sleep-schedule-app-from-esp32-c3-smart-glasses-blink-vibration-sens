@@ -80,7 +80,7 @@ export default function SleepScheduleCard({
           Personalized Sleep Schedule
         </CardTitle>
         <CardDescription>
-          Generate recommendations based on your current alertness state (5-minute rolling average)
+          Generate recommendations based on blinks counted (5-minute rolling average)
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -96,7 +96,7 @@ export default function SleepScheduleCard({
                 <div>
                   <p className="font-semibold text-foreground">{getStateDisplayName(currentStateInfo.state)}</p>
                   <p className="text-sm text-muted-foreground">
-                    Rolling Avg: {currentRollingAverage.toFixed(1)} BPM
+                    Rolling Avg: {currentRollingAverage.toFixed(1)} blinks/min
                   </p>
                 </div>
               </div>
@@ -169,7 +169,7 @@ export default function SleepScheduleCard({
                       {getStateDisplayName(capturedSchedule.stateInfo.state)}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Captured at {capturedSchedule.rollingAverage.toFixed(1)} BPM
+                      Captured at {capturedSchedule.rollingAverage.toFixed(1)} blinks/min
                     </p>
                   </div>
                 </div>
