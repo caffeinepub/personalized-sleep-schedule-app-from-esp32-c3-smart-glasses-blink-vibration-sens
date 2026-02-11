@@ -21,100 +21,84 @@ export default function DeviceConnection() {
     latestReading
   } = useBluetooth();
 
-  const [currentBlinkRate, setCurrentBlinkRate] = useState<number | null>(null);
-  const { totalPoints, lastSaveTime } = useLocalBlinkHistory();
-
   const [serviceUUID, setServiceUUID] = useState('');
   const [characteristicUUID, setCharacteristicUUID] = useState('');
   const [autoDiscover, setAutoDiscover] = useState(true);
   const [useCustomProfile, setUseCustomProfile] = useState(false);
+  const [currentBlinkRate, setCurrentBlinkRate] = useState<number>(0);
+  
+  const { addDataPoint } = useLocalBlinkHistory();
 
-  // Set up the blink rate change handler
   useEffect(() => {
     setOnBlinkRateChange((blinkRate: number) => {
       setCurrentBlinkRate(blinkRate);
+      addDataPoint(blinkRate);
     });
-  }, [setOnBlinkRateChange]);
+  }, [setOnBlinkRateChange, addDataPoint]);
 
   const handleConnect = async () => {
     await connect({
       serviceUUID: serviceUUID || undefined,
       characteristicUUID: characteristicUUID || undefined,
       autoDiscover,
-      useCustomProfile,
+      useCustomProfile
     });
-  };
-
-  const handleDisconnect = () => {
-    disconnect();
-    setCurrentBlinkRate(null);
   };
 
   const isConnected = connectionState === 'connected';
   const isConnecting = connectionState === 'connecting';
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto px-4 py-8 space-y-8">
-        {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">Device Connection</h1>
-          <p className="text-muted-foreground">
-            Connect your ESP32-C3 smart glasses via Bluetooth to monitor blink rate in real-time
-          </p>
-        </div>
+    <div className="container mx-auto px-4 py-8 max-w-4xl">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold mb-2">Device Connection</h1>
+        <p className="text-muted-foreground">
+          Connect your Eye-R smart glasses via Bluetooth to monitor blink rate in real-time
+        </p>
+      </div>
 
-        {/* Browser Support Check */}
-        {!isSupported && (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Web Bluetooth is not supported in this browser. Please use Chrome, Edge, or Opera.
-            </AlertDescription>
-          </Alert>
-        )}
+      {!isSupported && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Web Bluetooth is not supported in this browser. Please use Chrome, Edge, or Opera on desktop.
+          </AlertDescription>
+        </Alert>
+      )}
 
-        {/* Connection Status */}
+      {error && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="grid gap-6">
+        {/* Connection Status Card */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bluetooth className="h-6 w-6" />
-              Connection Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                {isConnected ? (
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                ) : (
-                  <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                )}
+                <Bluetooth className="h-6 w-6" />
                 <div>
-                  <p className="font-medium">
-                    {isConnected ? 'Connected' : isConnecting ? 'Connecting...' : 'Disconnected'}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {isConnected ? 'Receiving live data' : 'No active connection'}
-                  </p>
+                  <CardTitle>Connection Status</CardTitle>
+                  <CardDescription>Current device connection state</CardDescription>
                 </div>
               </div>
-              <Badge variant={isConnected ? 'default' : 'outline'}>
-                {connectionState}
+              <Badge 
+                variant={isConnected ? 'default' : 'secondary'}
+                className="text-sm"
+              >
+                {isConnected && <CheckCircle2 className="h-3 w-3 mr-1" />}
+                {connectionState.charAt(0).toUpperCase() + connectionState.slice(1)}
               </Badge>
             </div>
-
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
+          </CardHeader>
+          <CardContent>
             <div className="flex gap-3">
               {!isConnected ? (
-                <Button
-                  onClick={handleConnect}
+                <Button 
+                  onClick={handleConnect} 
                   disabled={!isSupported || isConnecting}
                   className="flex-1"
                 >
@@ -122,8 +106,8 @@ export default function DeviceConnection() {
                   {isConnecting ? 'Connecting...' : 'Connect Device'}
                 </Button>
               ) : (
-                <Button
-                  onClick={handleDisconnect}
+                <Button 
+                  onClick={disconnect} 
                   variant="outline"
                   className="flex-1"
                 >
@@ -134,67 +118,61 @@ export default function DeviceConnection() {
           </CardContent>
         </Card>
 
-        {/* Live Metrics */}
+        {/* Live Blink Rate Card */}
         {isConnected && (
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Current Blink Rate</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">
-                  {currentBlinkRate !== null ? currentBlinkRate : '--'}
-                </div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  Blinks counted in the last 60 seconds
-                </p>
-                <Badge variant="outline" className="mt-3">
-                  Live
-                </Badge>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Local Storage</CardTitle>
-                <HardDrive className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{totalPoints}</div>
-                <p className="text-xs text-muted-foreground mt-2">
-                  {lastSaveTime 
-                    ? `Last saved: ${new Date(lastSaveTime).toLocaleTimeString()}` 
-                    : 'No data saved yet'}
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        )}
-
-        {/* Raw Sensor Reading (Debug) */}
-        {latestReading && (
-          <Card className="bg-muted/30">
+          <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-medium">Raw Sensor Reading (Debug)</CardTitle>
-              <CardDescription>
-                Light sensor value from ESP32 (values below 30 count as blinks)
-              </CardDescription>
+              <div className="flex items-center gap-3">
+                <Activity className="h-6 w-6" />
+                <div>
+                  <CardTitle>Live Blink Rate</CardTitle>
+                  <CardDescription>
+                    Blinks counted in the last 60 seconds
+                  </CardDescription>
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
-              <code className="text-sm text-muted-foreground font-mono">{latestReading}</code>
+              <div className="text-center py-8">
+                <div className="text-6xl font-bold text-primary mb-2">
+                  {currentBlinkRate}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  blinks in last 60 seconds
+                </div>
+              </div>
             </CardContent>
           </Card>
         )}
 
-        <Separator />
+        {/* Raw Sensor Reading (Debug) */}
+        {isConnected && latestReading && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <HardDrive className="h-6 w-6" />
+                <div>
+                  <CardTitle>Raw Sensor Reading (Debug)</CardTitle>
+                  <CardDescription>
+                    Light level from photoresistor. Eye open: 250-290, Eye closed: 160-180. A blink is counted when the sensor transitions from open to closed state.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="bg-muted p-4 rounded-lg font-mono text-sm">
+                {latestReading}
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Advanced Connection Settings */}
+        {/* Advanced Settings */}
         <Card>
           <CardHeader>
-            <CardTitle>Advanced Settings</CardTitle>
+            <CardTitle>Advanced Connection Settings</CardTitle>
             <CardDescription>
-              Configure Bluetooth connection parameters (optional)
+              Optional: Customize Bluetooth service and characteristic UUIDs
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -205,12 +183,14 @@ export default function DeviceConnection() {
                   id="autoDiscover"
                   checked={autoDiscover}
                   onChange={(e) => setAutoDiscover(e.target.checked)}
-                  className="rounded"
+                  className="h-4 w-4"
                 />
-                <Label htmlFor="autoDiscover">Auto-discover characteristics</Label>
+                <Label htmlFor="autoDiscover">
+                  Auto-discover notifying characteristic
+                </Label>
               </div>
               <p className="text-xs text-muted-foreground ml-6">
-                Automatically find the first notify-capable characteristic
+                Automatically find the first characteristic that supports notifications
               </p>
             </div>
 
@@ -221,64 +201,65 @@ export default function DeviceConnection() {
                   id="useCustomProfile"
                   checked={useCustomProfile}
                   onChange={(e) => setUseCustomProfile(e.target.checked)}
-                  className="rounded"
+                  className="h-4 w-4"
                 />
-                <Label htmlFor="useCustomProfile">Use custom profile</Label>
+                <Label htmlFor="useCustomProfile">
+                  Use custom profile (accept all devices)
+                </Label>
               </div>
               <p className="text-xs text-muted-foreground ml-6">
-                Show all available devices instead of filtering by service
+                Show all Bluetooth devices instead of filtering by service UUID
               </p>
             </div>
 
-            {!autoDiscover && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="serviceUUID">Service UUID</Label>
-                  <Input
-                    id="serviceUUID"
-                    placeholder="e.g., 6e400001-b5a3-f393-e0a9-e50e24dcca9e"
-                    value={serviceUUID}
-                    onChange={(e) => setServiceUUID(e.target.value)}
-                  />
-                </div>
+            <Separator />
 
-                <div className="space-y-2">
-                  <Label htmlFor="characteristicUUID">Characteristic UUID</Label>
-                  <Input
-                    id="characteristicUUID"
-                    placeholder="e.g., 6e400003-b5a3-f393-e0a9-e50e24dcca9e"
-                    value={characteristicUUID}
-                    onChange={(e) => setCharacteristicUUID(e.target.value)}
-                  />
-                </div>
-              </>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="serviceUUID">Service UUID (optional)</Label>
+              <Input
+                id="serviceUUID"
+                placeholder="e.g., 6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+                value={serviceUUID}
+                onChange={(e) => setServiceUUID(e.target.value)}
+                disabled={isConnected}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="characteristicUUID">Characteristic UUID (optional)</Label>
+              <Input
+                id="characteristicUUID"
+                placeholder="e.g., 6e400003-b5a3-f393-e0a9-e50e24dcca9e"
+                value={characteristicUUID}
+                onChange={(e) => setCharacteristicUUID(e.target.value)}
+                disabled={isConnected}
+              />
+            </div>
           </CardContent>
         </Card>
 
         {/* Help Section */}
         <Card>
           <CardHeader>
-            <CardTitle>Connection Help</CardTitle>
+            <CardTitle>How It Works</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <p>
-              <strong>Step 1:</strong> Make sure your ESP32-C3 device is powered on and advertising.
+              The Eye-R smart glasses use a photoresistor to measure light levels near your eye. Based on calibrated thresholds:
+            </p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><strong>Eye open:</strong> Light level 250-290 (higher ambient light)</li>
+              <li><strong>Eye closed:</strong> Light level 160-180 (lower light when eyelid blocks sensor)</li>
+            </ul>
+            <p>
+              A blink is counted when the sensor reading transitions from the open state to the closed state. The system tracks blinks over a rolling 60-second window to calculate your current blink rate.
             </p>
             <p>
-              <strong>Step 2:</strong> Click "Connect Device" and select your device from the browser dialog.
-            </p>
-            <p>
-              <strong>Step 3:</strong> Once connected, blink rate data will appear automatically.
-            </p>
-            <p className="pt-2 text-xs">
-              <strong>Note:</strong> The system counts blinks when the light sensor value drops below 30. 
-              Each eye closure is counted once, even if it lasts for a second. The displayed blink rate 
-              shows the total number of blinks detected in the last 60 seconds.
+              <strong>Note:</strong> The blink counter shows the total number of blinks detected in the last 60 seconds, not blinks per minute averaged over time.
             </p>
           </CardContent>
         </Card>
-      </main>
+      </div>
     </div>
   );
 }

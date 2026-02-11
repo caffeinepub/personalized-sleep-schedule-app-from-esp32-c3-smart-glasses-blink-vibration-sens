@@ -38,9 +38,12 @@ const BluetoothContext = createContext<BluetoothContextValue | undefined>(undefi
 const MIN_CONNECTION_INTERVAL_MS = 2000;
 const MTU_EXCHANGE_DELAY_MS = 500;
 
-// Blink detection configuration
-const BLINK_THRESHOLD = 30; // Values below this are considered a blink
+// Calibrated eye state thresholds based on observed light levels
+const EYE_OPEN_THRESHOLD = 220; // Values >= 220 indicate eye is open (observed range: 250-290)
+const EYE_CLOSED_THRESHOLD = 200; // Values <= 200 indicate eye is closed (observed range: 160-180)
 const ROLLING_WINDOW_MS = 60000; // 60 seconds
+
+type EyeState = 'open' | 'closed' | 'unknown';
 
 function toServiceString(uuid: string | number): string {
   if (typeof uuid === 'number') {
@@ -68,13 +71,23 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
   const abortControllerRef = useRef<AbortController | null>(null);
   const attemptTokenRef = useRef<number>(0);
 
-  // Blink detection state
+  // Blink detection state with calibrated eye state tracking
   const blinkTimestampsRef = useRef<BlinkTimestamp[]>([]);
-  const isBlinkingRef = useRef<boolean>(false); // State guard to prevent multiple counts
+  const currentEyeStateRef = useRef<EyeState>('unknown');
 
   const setOnBlinkRateChange = useCallback((callback: (blinkRate: number) => void) => {
     onBlinkRateChangeRef.current = callback;
   }, []);
+
+  const classifyEyeState = (lightLevel: number): EyeState => {
+    if (lightLevel >= EYE_OPEN_THRESHOLD) {
+      return 'open';
+    } else if (lightLevel <= EYE_CLOSED_THRESHOLD) {
+      return 'closed';
+    } else {
+      return 'unknown';
+    }
+  };
 
   const handleCharacteristicValueChanged = useCallback((event: Event) => {
     const target = event.target as BluetoothRemoteGATTCharacteristic;
@@ -108,21 +121,19 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
 
     if (rawSensorValue === null) return;
 
-    // Blink detection logic
+    // Calibrated blink detection logic
     const now = Date.now();
+    const newEyeState = classifyEyeState(rawSensorValue);
+    const previousEyeState = currentEyeStateRef.current;
     
-    // Check if this is a blink (value below threshold)
-    if (rawSensorValue < BLINK_THRESHOLD) {
-      // Only count if we're not already in a blink state (state guard)
-      if (!isBlinkingRef.current) {
-        isBlinkingRef.current = true;
-        blinkTimestampsRef.current.push({ timestamp: now });
-        console.log(`Blink detected! Raw value: ${rawSensorValue}, Total blinks in window: ${blinkTimestampsRef.current.length}`);
-      }
-    } else {
-      // Value is above threshold, reset the blink state
-      isBlinkingRef.current = false;
+    // Count a blink on transition from open to closed
+    if (previousEyeState === 'open' && newEyeState === 'closed') {
+      blinkTimestampsRef.current.push({ timestamp: now });
+      console.log(`Blink detected! Light level: ${rawSensorValue} (open→closed transition), Total blinks in window: ${blinkTimestampsRef.current.length}`);
     }
+    
+    // Update current eye state
+    currentEyeStateRef.current = newEyeState;
 
     // Prune timestamps older than 60 seconds
     const cutoffTime = now - ROLLING_WINDOW_MS;
@@ -188,7 +199,7 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     
     // Reset blink detection state
     blinkTimestampsRef.current = [];
-    isBlinkingRef.current = false;
+    currentEyeStateRef.current = 'unknown';
   }, [cleanupConnection]);
 
   useEffect(() => {
@@ -338,7 +349,7 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
 
     // Reset blink detection state on new connection
     blinkTimestampsRef.current = [];
-    isBlinkingRef.current = false;
+    currentEyeStateRef.current = 'unknown';
 
     const isCustomMode = useCustomProfile || !serviceUUID || serviceUUID.toString().trim() === '';
     

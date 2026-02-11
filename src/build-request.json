@@ -1,52 +1,55 @@
 {
   "kind": "build_request",
-  "title": "Force clean rebuild and redeploy Eye-R to live canister with exact error reporting",
-  "priority": "high",
+  "title": "Recalibrate eye open/closed thresholds for blink detection",
+  "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Force a clean rebuild of the Eye-R project (frontend + backend) and redeploy the resulting build artifacts to the live canister (not draft).",
-      "target": "both",
+      "text": "Update blink detection in `frontend/src/contexts/BluetoothContext.tsx` to use calibrated light-level thresholds for eye open vs eye closed based on observed ranges (open: 250–290, closed: 160–180), instead of the current `BLINK_THRESHOLD = 30` logic.",
+      "target": "frontend",
       "source": {
         "messageIds": [
           "msg-1"
         ],
         "quotes": [
-          "The live deployment is stuck. Please force a rebuild of the 'Eye-R' project and push it to the live canister again."
+          "when the eye is open, light level reaches 250-290 and when the eye is closed, light level reaches 160-180, please fix threshold for eye open and eye closed"
         ]
       },
       "acceptanceCriteria": [
-        "A clean build is executed (no cached artifacts relied upon) for both the Motoko backend and React frontend.",
-        "The live canister is updated with the newly built WASM/assets for project 'Eye-R'.",
-        "Post-deploy, the live URL loads the latest frontend and backend canister responds to calls (basic smoke test)."
+        "Blink detection no longer relies on `rawSensorValue < 30`.",
+        "The code defines explicit thresholds that separate the two provided ranges (open 250–290 vs closed 160–180) and uses them to classify eye state.",
+        "A blink is counted when the sensor reading transitions from the open state into the closed state (with a state guard to prevent multiple counts during a single closure).",
+        "When the sensor value stays within the open range (250–290), no blinks are counted.",
+        "When the sensor value stays within the closed range (160–180), at most one blink is counted until the value returns to the open state."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "If the rebuild or redeploy fails, capture and present the exact build/deploy error output (verbatim) including the failing command, exit code, and the full compiler/toolchain error text so it can be used to diagnose and fix the issue.",
-      "target": "unknown",
+      "text": "Update user-facing debug/help copy in `frontend/src/pages/DeviceConnection.tsx` to reflect the new eye open/closed light-level thresholds (remove references to \"values below 30\" and replace with the updated threshold description).",
+      "target": "frontend",
       "source": {
         "messageIds": [
           "msg-1"
         ],
         "quotes": [
-          "If there is a build error, please tell me exactly what it is so we can fix it."
+          "please fix threshold for eye open and eye closed"
         ]
       },
       "acceptanceCriteria": [
-        "On failure, the report includes: (1) the exact step that failed, (2) the exact command executed, (3) the full stdout/stderr output, and (4) the exit code.",
-        "No error text is paraphrased; the original error output is preserved verbatim."
+        "The \"Raw Sensor Reading (Debug)\" description and the Help section note no longer mention \"drops below 30\".",
+        "The text describes the calibrated eye open and eye closed light-level thresholds in English.",
+        "No other unrelated UI text is changed."
       ]
     }
   ],
   "constraints": [
-    "Use English for any user-facing text.",
-    "Backend must remain a single Motoko actor in backend/main.mo; only add backend/migration.mo if a state upgrade is required by code changes.",
-    "Do not edit files under frontend/src/components/ui or any paths listed in frontend.immutablePaths."
+    "Do not edit files under `frontend/src/components/ui` (compose them only).",
+    "Do not modify any immutable frontend paths listed in SYSTEM_CONTEXT."
   ],
   "nonGoals": [
-    "Implementing new product features unrelated to unblocking deployment.",
-    "Changing application behavior (blink detection, UI labels, etc.) unless required to fix a build failure discovered during rebuild."
+    "Do not change backend (Motoko) blink-rate storage, APIs, or data model.",
+    "Do not add new authentication methods or third-party integrations.",
+    "Do not implement new device firmware logic; only adjust app-side thresholds and classification."
   ],
   "imageRequirements": {
     "required": [],

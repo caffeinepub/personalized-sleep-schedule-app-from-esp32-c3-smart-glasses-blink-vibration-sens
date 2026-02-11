@@ -1,33 +1,34 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Project 'Eye-R' with live canister deployment; user reports live deployment stuck and requests forced rebuild and redeploy with explicit build error reporting if it fails.",
-  "architectural_notes": [],
+  "summary": "New project",
+  "architectural_notes": [
+    "Eye open/closed detection uses light-level thresholding; observed ranges: open ~250–290, closed ~160–180; adjust thresholds accordingly."
+  ],
   "known_issues": [
-    "Live canister deployment is stuck; needs forced rebuild and redeploy. If build fails, capture and report exact build error."
+    "Eye open/closed classification threshold is miscalibrated given observed light levels (open 250–290 vs closed 160–180)."
   ],
   "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-force-a-clean-rebuild-of-the-eye-r-project-frontend-backend-and-redeploy-the-resulting-build-artifacts-to-the-live-canister-not-draft",
-      "title": "Force a clean rebuild of the Eye-R project (frontend + backend) and redeploy the resulting build artifacts to the live canister (not draft).",
+      "id": "feature-update-blink-detection-in-frontend-src-contexts-bluetoothcontext-tsx-to-use-calibrated-light-level-thresholds-for-eye-open-vs-eye-closed-based-on-observed-ranges-open-250-290-closed-160-180-instead-of-the-current-blink-threshold-30-logic",
+      "title": "Update blink detection in `frontend/src/contexts/BluetoothContext.tsx` to use calibrated light-level thresholds for eye open vs eye closed based on observed ranges (open: 250–290, closed: 160–180), instead of the current `BLINK_THRESHOLD = 30` logic.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
-    }
-  ],
-  "new_feature_requests": [
+    },
     {
-      "id": "AR-2",
-      "summary": "If the rebuild or redeploy fails, capture and present the exact build/deploy error output (verbatim) including the failing command, exit code, and the full compiler/toolchain error text so it can be used to diagnose and fix the issue.",
+      "id": "feature-update-user-facing-debug-help-copy-in-frontend-src-pages-deviceconnection-tsx-to-reflect-the-new-eye-open-closed-light-level-thresholds-remove-references-to-values-below-30-and-replace-with-the-updated-threshold-description",
+      "title": "Update user-facing debug/help copy in `frontend/src/pages/DeviceConnection.tsx` to reflect the new eye open/closed light-level thresholds (remove references to \"values below 30\" and replace with the updated threshold description).",
       "reqIds": [
         "REQ-2"
       ],
-      "status": "pending"
+      "version": 1
     }
   ],
-  "projectName": "Eye-R",
+  "new_feature_requests": [],
+  "projectName": "Recalibrate eye open/closed thresholds for blink detection",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

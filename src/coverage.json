@@ -1,54 +1,47 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-09T12:18:29.609Z",
+  "generatedAt": "2026-02-11T10:17:36.575Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
     "total": 2,
-    "implemented": 1,
+    "implemented": 2,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Force a clean rebuild of the Eye-R project (frontend + backend) and redeploy the resulting build artifacts to the live canister (not draft).",
+        "summary": "Update blink detection in `frontend/src/contexts/BluetoothContext.tsx` to use calibrated light-level thresholds for eye open vs eye closed based on observed ranges (open: 250–290, closed: 160–180), instead of the current `BLINK_THRESHOLD = 30` logic.",
         "status": "implemented",
         "plannedFiles": [
-          "frontend/src/pages/SmokeTest.tsx",
-          "frontend/src/App.tsx",
-          "frontend/src/components/layout/AppHeader.tsx",
-          "frontend/scripts/clean-rebuild-redeploy.mjs",
-          "frontend/DEPLOYMENT.md"
+          "frontend/src/contexts/BluetoothContext.tsx"
         ],
         "matchedFiles": [
-          "frontend/src/pages/SmokeTest.tsx",
-          "frontend/src/App.tsx",
-          "frontend/src/components/layout/AppHeader.tsx"
+          "frontend/src/contexts/BluetoothContext.tsx"
         ]
       },
       {
         "id": "REQ-2",
-        "summary": "If the rebuild or redeploy fails, capture and present the exact build/deploy error output (verbatim) including the failing command, exit code, and the full compiler/toolchain error text so it can be used to diagnose and fix the issue.",
-        "status": "missing",
+        "summary": "Update user-facing debug/help copy in `frontend/src/pages/DeviceConnection.tsx` to reflect the new eye open/closed light-level thresholds (remove references to \"values below 30\" and replace with the updated threshold description).",
+        "status": "implemented",
         "plannedFiles": [
-          "frontend/scripts/run-step-with-verbatim-log.mjs",
-          "frontend/scripts/clean-rebuild-redeploy.mjs",
-          "frontend/DEPLOYMENT.md"
+          "frontend/src/pages/DeviceConnection.tsx"
         ],
-        "matchedFiles": []
+        "matchedFiles": [
+          "frontend/src/pages/DeviceConnection.tsx"
+        ]
       }
     ]
   },
   "changedFiles": [
-    "backend/main.mo",
     "build-request.json",
+    "caffeine.lock.json",
     "feature_evidence.json",
     "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
-    "frontend/src/App.tsx",
-    "frontend/src/components/layout/AppHeader.tsx",
-    "frontend/src/pages/SmokeTest.tsx",
+    "frontend/src/contexts/BluetoothContext.tsx",
+    "frontend/src/pages/DeviceConnection.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

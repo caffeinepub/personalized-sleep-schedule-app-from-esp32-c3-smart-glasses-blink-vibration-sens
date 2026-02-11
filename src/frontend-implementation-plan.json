@@ -1,66 +1,39 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Eye-R frontend deployment diagnostics (clean rebuild, smoke test, verbatim error reporting)",
+  "title": "Calibrated eye open/closed thresholds for blink detection",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Add a frontend-accessible smoke test view and a clean rebuild/redeploy helper script to support verifying a fresh live deployment.",
+      "summary": "Replace the legacy BLINK_THRESHOLD-based blink detection with calibrated open/closed light-level classification and a transition-based blink counter.",
       "acceptanceCriteria": [
-        "A clean build is executed (no cached artifacts relied upon) for both the Motoko backend and React frontend.",
-        "The live canister is updated with the newly built WASM/assets for project 'Eye-R'.",
-        "Post-deploy, the live URL loads the latest frontend and backend canister responds to calls (basic smoke test)."
+        "Blink detection no longer relies on `rawSensorValue < 30`.",
+        "The code defines explicit thresholds that separate the two provided ranges (open 250–290 vs closed 160–180) and uses them to classify eye state.",
+        "A blink is counted when the sensor reading transitions from the open state into the closed state (with a state guard to prevent multiple counts during a single closure).",
+        "When the sensor value stays within the open range (250–290), no blinks are counted.",
+        "When the sensor value stays within the closed range (160–180), at most one blink is counted until the value returns to the open state."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/pages/SmokeTest.tsx",
-          "operation": "create",
-          "description": "Create a Smoke Test page that performs a basic read call via the existing actor (e.g., role/profile queries) and renders clear PASS/FAIL status plus any thrown error text verbatim to help verify post-deploy connectivity."
-        },
-        {
-          "path": "frontend/src/App.tsx",
+          "path": "frontend/src/contexts/BluetoothContext.tsx",
           "operation": "modify",
-          "description": "Register a new TanStack Router route for the Smoke Test page (e.g., /smoke-test) so it is reachable for post-deploy verification."
-        },
-        {
-          "path": "frontend/src/components/layout/AppHeader.tsx",
-          "operation": "modify",
-          "description": "Wire a navigation link to the Smoke Test route so the check is easily discoverable after deployment."
-        },
-        {
-          "path": "frontend/scripts/clean-rebuild-redeploy.mjs",
-          "operation": "create",
-          "description": "Add a Node script (invoked manually) that runs a clean rebuild and redeploy workflow by orchestrating the necessary shell commands (including cache removal for frontend build artifacts) and then runs the frontend smoke test instructions for the live URL. Ensure the script is safe-by-default and does not change app runtime behavior."
-        },
-        {
-          "path": "frontend/DEPLOYMENT.md",
-          "operation": "create",
-          "description": "Document the clean rebuild + live redeploy procedure, including how to run the clean rebuild/redeploy script and how to use the Smoke Test route on the live URL for a basic verification."
+          "description": "Remove the `BLINK_THRESHOLD = 30` blink classification logic and introduce calibrated constants for eye-open (250–290) and eye-closed (160–180). Implement an explicit eye-state classifier (e.g., open/closed/unknown) and update blink counting to increment only on an open→closed transition, with a guard so sustained closed readings count at most one blink until an open reading is observed again. Keep the existing rolling 60s window pruning and onBlinkRateChange emission behavior intact."
         }
       ]
     },
     {
       "id": "REQ-2",
-      "summary": "Provide a verbatim build/redeploy failure report generator that captures the failing command, exit code, and full stdout/stderr output.",
+      "summary": "Update Device Connection debug/help text to describe the calibrated eye open/closed light-level thresholds instead of the old “below 30” rule.",
       "acceptanceCriteria": [
-        "On failure, the report includes: (1) the exact step that failed, (2) the exact command executed, (3) the full stdout/stderr output, and (4) the exit code.",
-        "No error text is paraphrased; the original error output is preserved verbatim."
+        "The \"Raw Sensor Reading (Debug)\" description and the Help section note no longer mention \"drops below 30\".",
+        "The text describes the calibrated eye open and eye closed light-level thresholds in English.",
+        "No other unrelated UI text is changed."
       ],
       "file_operations": [
         {
-          "path": "frontend/scripts/run-step-with-verbatim-log.mjs",
-          "operation": "create",
-          "description": "Create a small Node helper that executes a single shell command, captures full stdout/stderr verbatim, records the exit code, and writes a structured, copy-pastable failure report to the console and an output file."
-        },
-        {
-          "path": "frontend/scripts/clean-rebuild-redeploy.mjs",
+          "path": "frontend/src/pages/DeviceConnection.tsx",
           "operation": "modify",
-          "description": "Integrate the verbatim logging helper so each rebuild/redeploy step is executed through it and failures emit an exact report including step name, exact command, full stdout/stderr, and exit code (no paraphrasing)."
-        },
-        {
-          "path": "frontend/DEPLOYMENT.md",
-          "operation": "modify",
-          "description": "Add a troubleshooting section describing where to find the verbatim failure report output file, and how to share it for diagnosis without modification."
+          "description": "Update the \"Raw Sensor Reading (Debug)\" CardDescription and the Help section note to remove references to \"values below 30\" and instead explain the calibrated ranges (eye open: 250–290, eye closed: 160–180) and that a blink is counted on an open→closed transition (one count per closure until the value returns to the open range). Do not change unrelated UI copy or any files under `frontend/src/components/ui`."
         }
       ]
     }
