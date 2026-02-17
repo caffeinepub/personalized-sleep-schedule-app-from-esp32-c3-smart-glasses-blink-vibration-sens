@@ -2,10 +2,11 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-update-blink-detection-in-frontend-src-contexts-bluetoothcontext-tsx-to-use-calibrated-light-level-thresholds-for-eye-open-vs-eye-closed-based-on-observed-ranges-open-250-290-closed-160-180-instead-of-the-current-blink-threshold-30-logic",
-      "featureTitle": "Update blink detection in `frontend/src/contexts/BluetoothContext.tsx` to use calibrated light-level thresholds for eye open vs eye closed based on observed ranges (open: 250–290, closed: 160–180), instead of the current `BLINK_THRESHOLD = 30` logic.",
+      "featureId": "feature-update-ble-parsing-and-blink-detection-so-that-when-an-incoming-ble-notification-is-decoded-as-text-containing-the-eye-state-token-close-case-insensitive-the-app-records-a-blink-event-i-e-increments-the-rolling-blink-counter-used-to-compute-the-blinks-in-last-60-seconds-value-even-if-no-numeric-light-level-value-is-present",
+      "featureTitle": "Update BLE parsing and blink detection so that when an incoming BLE notification is decoded as text containing the eye-state token \"close\" (case-insensitive), the app records a blink event (i.e., increments the rolling blink counter used to compute the \"blinks in last 60 seconds\" value), even if no numeric light-level value is present.",
       "files": [
-        "frontend/src/contexts/BluetoothContext.tsx"
+        "frontend/src/contexts/BluetoothContext.tsx",
+        "frontend/src/utils/bleNus.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -17,25 +18,6 @@
       ],
       "testIds": [
         "REQ-1"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-update-user-facing-debug-help-copy-in-frontend-src-pages-deviceconnection-tsx-to-reflect-the-new-eye-open-closed-light-level-thresholds-remove-references-to-values-below-30-and-replace-with-the-updated-threshold-description",
-      "featureTitle": "Update user-facing debug/help copy in `frontend/src/pages/DeviceConnection.tsx` to reflect the new eye open/closed light-level thresholds (remove references to \"values below 30\" and replace with the updated threshold description).",
-      "files": [
-        "frontend/src/pages/DeviceConnection.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-2"
       ],
       "confidence": "high"
     }

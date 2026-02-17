@@ -77,6 +77,32 @@ export function parseBlinkRateFromText(text: string): number | null {
 }
 
 /**
+ * Detects eye-state tokens from decoded UTF-8 text.
+ * Recognizes "close" and "open" (case-insensitive) as eye state indicators.
+ * 
+ * @param text - The decoded UTF-8 text string
+ * @returns 'close' | 'open' | null depending on detected token
+ */
+export function parseEyeStateToken(text: string): 'close' | 'open' | null {
+  try {
+    const trimmed = text.trim().toLowerCase();
+    
+    if (trimmed.includes('close')) {
+      return 'close';
+    }
+    
+    if (trimmed.includes('open')) {
+      return 'open';
+    }
+    
+    return null;
+  } catch (err) {
+    console.error('Failed to parse eye state token:', err);
+    return null;
+  }
+}
+
+/**
  * Parses a Heart Rate Measurement characteristic value (standard BLE format).
  * This is the legacy format used before switching to NUS.
  * 

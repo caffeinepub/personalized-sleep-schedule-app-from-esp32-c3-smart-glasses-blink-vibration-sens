@@ -6,7 +6,8 @@ import {
   CCCD_UUID,
   parseNusBlinkRate,
   parseBlinkRateFromText,
-  parseHeartRateBlinkRate
+  parseHeartRateBlinkRate,
+  parseEyeStateToken
 } from '../utils/bleNus';
 
 type ConnectionState = 'disconnected' | 'connecting' | 'connected';
@@ -105,35 +106,64 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
       console.warn('Failed to decode as UTF-8 text:', err);
     }
 
-    // Parse the raw sensor value
-    let rawSensorValue: number | null = null;
-    if (decodedText) {
-      rawSensorValue = parseBlinkRateFromText(decodedText);
-    }
-
-    if (rawSensorValue === null) {
-      rawSensorValue = parseNusBlinkRate(value);
-    }
-    
-    if (rawSensorValue === null) {
-      rawSensorValue = parseHeartRateBlinkRate(value);
-    }
-
-    if (rawSensorValue === null) return;
-
-    // Calibrated blink detection logic
     const now = Date.now();
-    const newEyeState = classifyEyeState(rawSensorValue);
-    const previousEyeState = currentEyeStateRef.current;
-    
-    // Count a blink on transition from open to closed
-    if (previousEyeState === 'open' && newEyeState === 'closed') {
-      blinkTimestampsRef.current.push({ timestamp: now });
-      console.log(`Blink detected! Light level: ${rawSensorValue} (open→closed transition), Total blinks in window: ${blinkTimestampsRef.current.length}`);
+    let newEyeState: EyeState = 'unknown';
+    let blinkDetected = false;
+
+    // First, check for eye-state tokens (e.g., "close", "open")
+    if (decodedText) {
+      const eyeStateToken = parseEyeStateToken(decodedText);
+      
+      if (eyeStateToken === 'close') {
+        newEyeState = 'closed';
+        const previousEyeState = currentEyeStateRef.current;
+        
+        // Count a blink on transition to closed (from open or unknown)
+        // De-duplication: only count if we weren't already in closed state
+        if (previousEyeState !== 'closed') {
+          blinkTimestampsRef.current.push({ timestamp: now });
+          blinkDetected = true;
+          console.log(`Blink detected! Token: "close" (${previousEyeState}→closed transition), Total blinks in window: ${blinkTimestampsRef.current.length}`);
+        }
+      } else if (eyeStateToken === 'open') {
+        newEyeState = 'open';
+      }
+    }
+
+    // If no token was detected, try parsing numeric light level
+    if (newEyeState === 'unknown') {
+      let rawSensorValue: number | null = null;
+      
+      if (decodedText) {
+        rawSensorValue = parseBlinkRateFromText(decodedText);
+      }
+
+      if (rawSensorValue === null) {
+        rawSensorValue = parseNusBlinkRate(value);
+      }
+      
+      if (rawSensorValue === null) {
+        rawSensorValue = parseHeartRateBlinkRate(value);
+      }
+
+      // Only process numeric values if we got one
+      if (rawSensorValue !== null) {
+        newEyeState = classifyEyeState(rawSensorValue);
+        const previousEyeState = currentEyeStateRef.current;
+        
+        // Count a blink on transition from open to closed (numeric path)
+        if (previousEyeState === 'open' && newEyeState === 'closed') {
+          blinkTimestampsRef.current.push({ timestamp: now });
+          blinkDetected = true;
+          console.log(`Blink detected! Light level: ${rawSensorValue} (open→closed transition), Total blinks in window: ${blinkTimestampsRef.current.length}`);
+        }
+      }
     }
     
-    // Update current eye state
-    currentEyeStateRef.current = newEyeState;
+    // Update current eye state if we determined a new state
+    if (newEyeState !== 'unknown') {
+      currentEyeStateRef.current = newEyeState;
+    }
 
     // Prune timestamps older than 60 seconds
     const cutoffTime = now - ROLLING_WINDOW_MS;

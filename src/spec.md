@@ -1,11 +1,11 @@
 # Specification
 
 ## Summary
-**Goal:** Recalibrate blink detection to use observed light-level ranges for eye open vs. eye closed, and update related UI help/debug copy accordingly.
+**Goal:** Treat BLE notifications containing the eye-state token "close" (case-insensitive) as a blink event for the live 60-second rolling blink rate, even when no numeric light-level value is present.
 
 **Planned changes:**
-- Update `frontend/src/contexts/BluetoothContext.tsx` blink detection to classify eye state using calibrated thresholds that separate open (250–290) from closed (160–180), replacing the current `BLINK_THRESHOLD = 30` logic.
-- Count a blink only on a transition from open → closed, with a state guard to prevent multiple counts while the reading remains in the closed range until it returns to open.
-- Update `frontend/src/pages/DeviceConnection.tsx` debug/help text to remove references to “below 30” and describe the calibrated open/closed light-level thresholds in English.
+- Update the frontend BLE notification parsing to detect text payloads that include "close" (any casing) and record a blink into the existing 60-second rolling window.
+- Add a simple de-duplication/debounce rule to avoid counting repeated consecutive "close" notifications as multiple blinks (e.g., only count the first "close" until an "open" is seen, or enforce a minimum time gap).
+- Preserve existing numeric light-level open→closed transition blink detection behavior for numeric payloads.
 
-**User-visible outcome:** Blink counting aligns with the calibrated sensor ranges (open ~250–290, closed ~160–180), and the Device Connection debug/help text reflects the new thresholds.
+**User-visible outcome:** When the connected BLE device sends a notification containing "close", the Live Blink Rate (blinks in the last 60 seconds) increases appropriately without runaway double-counting, and numeric-based blink detection continues to work as before.

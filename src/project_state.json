@@ -2,33 +2,28 @@
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
   "summary": "New project",
-  "architectural_notes": [
-    "Eye open/closed detection uses light-level thresholding; observed ranges: open ~250–290, closed ~160–180; adjust thresholds accordingly."
-  ],
-  "known_issues": [
-    "Eye open/closed classification threshold is miscalibrated given observed light levels (open 250–290 vs closed 160–180)."
-  ],
-  "isFixRequest": true,
+  "architectural_notes": [],
+  "known_issues": [],
+  "isFixRequest": false,
   "existing_features": [
     {
-      "id": "feature-update-blink-detection-in-frontend-src-contexts-bluetoothcontext-tsx-to-use-calibrated-light-level-thresholds-for-eye-open-vs-eye-closed-based-on-observed-ranges-open-250-290-closed-160-180-instead-of-the-current-blink-threshold-30-logic",
-      "title": "Update blink detection in `frontend/src/contexts/BluetoothContext.tsx` to use calibrated light-level thresholds for eye open vs eye closed based on observed ranges (open: 250–290, closed: 160–180), instead of the current `BLINK_THRESHOLD = 30` logic.",
+      "id": "feature-update-ble-parsing-and-blink-detection-so-that-when-an-incoming-ble-notification-is-decoded-as-text-containing-the-eye-state-token-close-case-insensitive-the-app-records-a-blink-event-i-e-increments-the-rolling-blink-counter-used-to-compute-the-blinks-in-last-60-seconds-value-even-if-no-numeric-light-level-value-is-present",
+      "title": "Update BLE parsing and blink detection so that when an incoming BLE notification is decoded as text containing the eye-state token \"close\" (case-insensitive), the app records a blink event (i.e., increments the rolling blink counter used to compute the \"blinks in last 60 seconds\" value), even if no numeric light-level value is present.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
-    },
-    {
-      "id": "feature-update-user-facing-debug-help-copy-in-frontend-src-pages-deviceconnection-tsx-to-reflect-the-new-eye-open-closed-light-level-thresholds-remove-references-to-values-below-30-and-replace-with-the-updated-threshold-description",
-      "title": "Update user-facing debug/help copy in `frontend/src/pages/DeviceConnection.tsx` to reflect the new eye open/closed light-level thresholds (remove references to \"values below 30\" and replace with the updated threshold description).",
-      "reqIds": [
-        "REQ-2"
-      ],
-      "version": 1
     }
   ],
-  "new_feature_requests": [],
-  "projectName": "Recalibrate eye open/closed thresholds for blink detection",
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "When the system detects \"close\", treat it as a blink event",
+      "reqIds": [],
+      "status": "pending"
+    }
+  ],
+  "projectName": "Treat BLE 'close' detection as a blink event",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

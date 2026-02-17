@@ -1,58 +1,49 @@
 {
   "kind": "build_request",
-  "title": "Recalibrate eye open/closed thresholds for blink detection",
+  "title": "Treat BLE 'close' detection as a blink event",
   "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Update blink detection in `frontend/src/contexts/BluetoothContext.tsx` to use calibrated light-level thresholds for eye open vs eye closed based on observed ranges (open: 250–290, closed: 160–180), instead of the current `BLINK_THRESHOLD = 30` logic.",
+      "text": "Update BLE parsing and blink detection so that when an incoming BLE notification is decoded as text containing the eye-state token \"close\" (case-insensitive), the app records a blink event (i.e., increments the rolling blink counter used to compute the \"blinks in last 60 seconds\" value), even if no numeric light-level value is present.",
       "target": "frontend",
       "source": {
         "messageIds": [
           "msg-1"
         ],
         "quotes": [
-          "when the eye is open, light level reaches 250-290 and when the eye is closed, light level reaches 160-180, please fix threshold for eye open and eye closed"
+          "once detected \"close,\" set it as blink"
         ]
       },
       "acceptanceCriteria": [
-        "Blink detection no longer relies on `rawSensorValue < 30`.",
-        "The code defines explicit thresholds that separate the two provided ranges (open 250–290 vs closed 160–180) and uses them to classify eye state.",
-        "A blink is counted when the sensor reading transitions from the open state into the closed state (with a state guard to prevent multiple counts during a single closure).",
-        "When the sensor value stays within the open range (250–290), no blinks are counted.",
-        "When the sensor value stays within the closed range (160–180), at most one blink is counted until the value returns to the open state."
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "text": "Update user-facing debug/help copy in `frontend/src/pages/DeviceConnection.tsx` to reflect the new eye open/closed light-level thresholds (remove references to \"values below 30\" and replace with the updated threshold description).",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-1"
-        ],
-        "quotes": [
-          "please fix threshold for eye open and eye closed"
-        ]
-      },
-      "acceptanceCriteria": [
-        "The \"Raw Sensor Reading (Debug)\" description and the Help section note no longer mention \"drops below 30\".",
-        "The text describes the calibrated eye open and eye closed light-level thresholds in English.",
-        "No other unrelated UI text is changed."
+        "When the BLE notification payload decodes to text that includes \"close\" (any casing), a blink is added to the 60-second rolling window and the Live Blink Rate number increases accordingly.",
+        "If multiple consecutive notifications contain \"close\" with no intervening \"open\", the implementation prevents runaway double-counting by applying a reasonable de-duplication/debounce rule (e.g., count only on first \"close\" until an \"open\" is seen, or impose a minimum time gap).",
+        "Existing numeric light-level based open→closed transition detection continues to function as it does today for numeric payloads.",
+        "No changes are required to backend storage/APIs for this behavior; the change is limited to the frontend BLE parsing/detection flow (e.g., in `frontend/src/contexts/BluetoothContext.tsx`, and related parsing utilities if needed)."
       ]
     }
   ],
   "constraints": [
-    "Do not edit files under `frontend/src/components/ui` (compose them only).",
-    "Do not modify any immutable frontend paths listed in SYSTEM_CONTEXT."
+    "Do not edit files under `frontend/src/components/ui` (read-only).",
+    "Do not edit immutable hook/entry paths: `frontend/src/hooks/useInternetIdentity.ts`, `frontend/src/hooks/useInternetIdentity.tsx`, `frontend/src/hooks/useActor.ts`, `frontend/src/main.tsx`.",
+    "Keep all backend logic within the existing single Motoko actor (`backend/main.mo`) and do not introduce additional backend services."
   ],
   "nonGoals": [
-    "Do not change backend (Motoko) blink-rate storage, APIs, or data model.",
-    "Do not add new authentication methods or third-party integrations.",
-    "Do not implement new device firmware logic; only adjust app-side thresholds and classification."
+    "Adding new backend endpoints or persisting individual blink events in the backend specifically for \"close\" tokens.",
+    "Implementing real-time streaming or WebSocket-based updates."
   ],
   "imageRequirements": {
     "required": [],
     "edits": []
+  },
+  "userProfileUpdate": {
+    "goalsToAdd": [],
+    "goalsToRemove": [],
+    "preferencesToAdd": [],
+    "preferencesToRemove": [],
+    "miscToAdd": [],
+    "miscToRemove": [],
+    "fieldsToSet": {},
+    "fieldsToDelete": []
   }
 }
