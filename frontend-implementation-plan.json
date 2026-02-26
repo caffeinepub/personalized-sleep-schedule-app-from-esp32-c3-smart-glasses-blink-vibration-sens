@@ -1,55 +1,33 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Add battery percentage display to dashboard",
+  "title": "Fix BLE device discovery: enable acceptAllDevices and add optionalServices UUID",
   "requirements": [
     {
       "id": "REQ-1",
-      "summary": "Parse and expose battery percentage from BLE notifications in the Bluetooth context",
+      "summary": "Update Bluetooth connection request to use acceptAllDevices and add NUS service UUID to optionalServices",
       "acceptanceCriteria": [
-        "Battery percentage value (0–100) is parsed from BLE notifications when available.",
-        "The value is stored in the BluetoothContext state and updated on each relevant notification.",
-        "When no battery data has been received, the value is represented as undefined/null rather than a misleading default."
+        "navigator.bluetooth.requestDevice() is called with { acceptAllDevices: true, optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] } — no 'filters' property is present.",
+        "The device picker dialog appears in the browser and lists the user's BLE device without requiring a name or service filter match.",
+        "After selecting the device, the app can successfully connect to GATT and access the NUS service using UUID 6e400001-b5a3-f393-e0a9-e50e24dcca9e.",
+        "No TypeScript or runtime errors are introduced by the change.",
+        "The hardcoded NUS service UUID in bleNus.ts (if used as the primary service UUID reference) is consistent with 6e400001-b5a3-f393-e0a9-e50e24dcca9e."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/utils/bleNus.ts",
-          "operation": "modify",
-          "description": "Add a parseBatteryPercentage utility function to extract battery percentage (0–100) from BLE notification messages. The function should parse battery data tokens (e.g., 'BAT:72' or similar protocol format) from the notification string, validate the range, and return a number or undefined if no valid battery data is present."
-        },
-        {
           "path": "frontend/src/contexts/BluetoothContext.tsx",
           "operation": "modify",
-          "description": "Add batteryPercentage (number | undefined) and isCharging (boolean) fields to the BluetoothContext state. In the notification handler, call the parseBatteryPercentage utility from bleNus.ts to extract battery data from incoming messages. Update the context state with the parsed battery percentage and charging status whenever a battery notification is received. Initialize both fields to undefined when no device is connected."
+          "description": "Update the navigator.bluetooth.requestDevice() call within the connect handler to use { acceptAllDevices: true, optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] } instead of any device name or service filters. This allows the browser to display all available BLE devices and grants access to the NUS service UUID after pairing."
         },
         {
           "path": "frontend/src/hooks/useEyeRBluetooth.ts",
           "operation": "modify",
-          "description": "Expose batteryPercentage and isCharging from the BluetoothContext in the useEyeRBluetooth hook return value so components can access the battery state. Ensure these fields are passed through from the context without modification."
-        }
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "summary": "Add battery percentage indicator widget to the Dashboard page",
-      "acceptanceCriteria": [
-        "A battery widget is visible on the Dashboard page.",
-        "The widget displays the current battery percentage as a number (e.g., '72%').",
-        "A visual indicator (icon or progress bar) updates to reflect the battery level.",
-        "A 'Charging' label or icon is shown when the device reports a charging state.",
-        "When battery data is unavailable, the widget shows a placeholder such as '-- %' or 'No data'.",
-        "The widget styling is consistent with the existing dashboard theme."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/components/device/BatteryIndicator.tsx",
-          "operation": "create",
-          "description": "Create a BatteryIndicator component that displays the battery percentage and charging status. Accept batteryPercentage (number | undefined) and isCharging (boolean) as props. Render a card with a battery icon (use Lucide React icons such as Battery, BatteryCharging, BatteryLow, BatteryMedium, BatteryFull), the numeric percentage (or '-- %' placeholder when undefined), and a 'Charging' label when isCharging is true. Use a progress bar or color-coded icon to visually represent the charge level (red < 20%, yellow 20–50%, green > 50%). Apply Tailwind classes consistent with the existing dashboard theme using OKLCH color tokens from frontend/src/index.css."
+          "description": "Update the navigator.bluetooth.requestDevice() call in the connect function to use { acceptAllDevices: true, optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] } instead of filters. Ensure the NUS service UUID reference matches 6e400001-b5a3-f393-e0a9-e50e24dcca9e throughout the connection and GATT access logic."
         },
         {
-          "path": "frontend/src/pages/Dashboard.tsx",
+          "path": "frontend/src/utils/bleNus.ts",
           "operation": "modify",
-          "description": "Import the new BatteryIndicator component and the useEyeRBluetooth hook (or access batteryPercentage and isCharging from BluetoothContext). Add the BatteryIndicator component to the Dashboard layout, placing it in a prominent location near other device status widgets (e.g., connection status or live blink-rate display). Pass the batteryPercentage and isCharging values from the Bluetooth context as props to the BatteryIndicator. Ensure the widget integrates visually with the existing dashboard grid or card layout."
+          "description": "Verify that the NUS_SERVICE_UUID constant is set to '6e400001-b5a3-f393-e0a9-e50e24dcca9e'. If it differs, update it to match. Ensure TX and RX characteristic UUIDs remain unchanged as per the constraint."
         }
       ]
     }

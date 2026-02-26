@@ -2,12 +2,11 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-parse-and-expose-the-battery-percentage-value-from-incoming-ble-notifications-in-the-bluetooth-context-if-the-ble-protocol-already-transmits-battery-data-extract-it-otherwise-add-a-dedicated-battery-level-field-to-the-ble-data-model-so-it-can-be-consumed-by-the-dashboard",
-      "featureTitle": "Parse and expose the battery percentage value from incoming BLE notifications in the Bluetooth context. If the BLE protocol already transmits battery data, extract it; otherwise add a dedicated battery level field to the BLE data model so it can be consumed by the dashboard.",
+      "featureId": "feature-in-the-bluetooth-connection-request-within-bluetoothcontext-tsx-and-or-useeyerbluetooth-ts-update-the-navigator-bluetooth-requestdevice-call-to-use-acceptalldevices-true-instead-of-any-device-filters-and-add-the-device-s-nus-service-uuid-6e400001-b5a3-f393-e0a9-e50e24dcca9e-to-the-optionalservices-array-so-the-browser-grants-access-to-that-gatt-service-after-pairing",
+      "featureTitle": "In the Bluetooth connection request (within BluetoothContext.tsx and/or useEyeRBluetooth.ts), update the navigator.bluetooth.requestDevice() call to use 'acceptAllDevices: true' instead of any device filters, and add the device's NUS service UUID '6e400001-b5a3-f393-e0a9-e50e24dcca9e' to the 'optionalServices' array so the browser grants access to that GATT service after pairing.",
       "files": [
         "frontend/src/contexts/BluetoothContext.tsx",
-        "frontend/src/hooks/useEyeRBluetooth.ts",
-        "frontend/src/utils/bleNus.ts"
+        "frontend/src/hooks/useEyeRBluetooth.ts"
       ],
       "components": [
         "authorization@4.0.0",
@@ -19,26 +18,6 @@
       ],
       "testIds": [
         "REQ-1"
-      ],
-      "confidence": "high"
-    },
-    {
-      "featureId": "feature-add-a-battery-percentage-indicator-card-widget-to-the-dashboard-page-frontend-src-pages-dashboard-tsx-that-displays-the-current-battery-level-of-the-connected-device-the-widget-should-show-the-numeric-percentage-a-visual-battery-icon-or-progress-bar-that-reflects-the-charge-level-and-a-charging-status-label-when-the-device-is-charging-when-no-device-is-connected-or-battery-data-is-unavailable-display-a-clear-placeholder-state",
-      "featureTitle": "Add a battery percentage indicator card/widget to the Dashboard page (frontend/src/pages/Dashboard.tsx) that displays the current battery level of the connected device. The widget should show the numeric percentage, a visual battery icon or progress bar that reflects the charge level, and a 'Charging' status label when the device is charging. When no device is connected or battery data is unavailable, display a clear placeholder state.",
-      "files": [
-        "frontend/src/components/device/BatteryIndicator.tsx",
-        "frontend/src/pages/Dashboard.tsx"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-2"
       ],
       "confidence": "high"
     }

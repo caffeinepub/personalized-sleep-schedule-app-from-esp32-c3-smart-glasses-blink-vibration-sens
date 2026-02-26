@@ -1,14 +1,10 @@
 # Specification
 
 ## Summary
-**Goal:** Add a battery percentage display widget to the EyeR Monitor dashboard so users can monitor their device's charge level while it is connected.
+**Goal:** Fix BLE device discovery by updating the Bluetooth connection request to use `acceptAllDevices: true` and include the NUS service UUID as an optional service.
 
 **Planned changes:**
-- Parse and expose the battery percentage value (0–100) from incoming BLE notifications in the Bluetooth context, storing it in state and updating on each relevant notification.
-- When no battery data has been received, represent the value as undefined/null rather than a misleading default.
-- Add a battery widget/card to the Dashboard page that displays the numeric battery percentage and a visual battery icon or progress bar reflecting the charge level.
-- Show a "Charging" label or icon on the widget when the device reports a charging state.
-- Show a placeholder (e.g., "-- %" or "No data") when the device is not connected or battery data is unavailable.
-- Style the widget consistently with the existing dashboard OKLCH color theme and Tailwind conventions.
+- Update `navigator.bluetooth.requestDevice()` in `BluetoothContext.tsx` and/or `useEyeRBluetooth.ts` to use `{ acceptAllDevices: true, optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] }`, removing any existing `filters` property.
+- Ensure the NUS service UUID `6e400001-b5a3-f393-e0a9-e50e24dcca9e` in `bleNus.ts` is consistent with the value used in the request.
 
-**User-visible outcome:** Users can see a battery percentage widget on the dashboard that shows the current charge level of their connected BLE device, updates in real time, and indicates when the device is charging.
+**User-visible outcome:** The browser's BLE device picker will show all nearby devices without requiring a name or service filter match, and the app can successfully connect to the user's BLE device and access its NUS GATT service after pairing.

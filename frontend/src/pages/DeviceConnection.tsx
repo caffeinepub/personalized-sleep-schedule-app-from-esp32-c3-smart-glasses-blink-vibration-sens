@@ -154,7 +154,7 @@ export default function DeviceConnection() {
                 <div>
                   <CardTitle>Raw Sensor Reading (Debug)</CardTitle>
                   <CardDescription>
-                    Light level from photoresistor. Eye open: 250-290, Eye closed: 160-180. A blink is counted when the sensor transitions from open to closed state.
+                    Light level from photoresistor. Eye open: 1800–2000, Eye closed: 1500–1700. A blink is counted when the sensor transitions from open to closed state.
                   </CardDescription>
                 </div>
               </div>
@@ -248,8 +248,8 @@ export default function DeviceConnection() {
               The Eye-R smart glasses use a photoresistor to measure light levels near your eye. Based on calibrated thresholds:
             </p>
             <ul className="list-disc list-inside space-y-1 ml-2">
-              <li><strong>Eye open:</strong> Light level 250-290 (higher ambient light)</li>
-              <li><strong>Eye closed:</strong> Light level 160-180 (lower light when eyelid blocks sensor)</li>
+              <li><strong>Eye open:</strong> Light level 1800–2000 (higher ambient light)</li>
+              <li><strong>Eye closed:</strong> Light level 1500–1700 (lower light when eyelid blocks sensor)</li>
             </ul>
             <p>
               A blink is counted when the sensor reading transitions from the open state to the closed state. The system tracks blinks over a rolling 60-second window to calculate your current blink rate.

@@ -1,38 +1,25 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Project involves a dashboard with blink detection features and product monitoring capabilities.",
-  "architectural_notes": [],
+  "summary": "Eye-tracking web app with BLE connectivity support, deployed on Internet Computer. Currently on Version 38 with eye blink/open detection features and BLE integration using Nordic UART Service UUID.",
+  "architectural_notes": [
+    "BLE connection uses acceptAllDevices: true with optionalServices including UUID 6e400001-b5a3-f393-e0a9-e50e24dcca9e (Nordic UART Service)"
+  ],
   "known_issues": [],
-  "isFixRequest": false,
+  "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-parse-and-expose-the-battery-percentage-value-from-incoming-ble-notifications-in-the-bluetooth-context-if-the-ble-protocol-already-transmits-battery-data-extract-it-otherwise-add-a-dedicated-battery-level-field-to-the-ble-data-model-so-it-can-be-consumed-by-the-dashboard",
-      "title": "Parse and expose the battery percentage value from incoming BLE notifications in the Bluetooth context. If the BLE protocol already transmits battery data, extract it; otherwise add a dedicated battery level field to the BLE data model so it can be consumed by the dashboard.",
+      "id": "feature-in-the-bluetooth-connection-request-within-bluetoothcontext-tsx-and-or-useeyerbluetooth-ts-update-the-navigator-bluetooth-requestdevice-call-to-use-acceptalldevices-true-instead-of-any-device-filters-and-add-the-device-s-nus-service-uuid-6e400001-b5a3-f393-e0a9-e50e24dcca9e-to-the-optionalservices-array-so-the-browser-grants-access-to-that-gatt-service-after-pairing",
+      "title": "In the Bluetooth connection request (within BluetoothContext.tsx and/or useEyeRBluetooth.ts), update the navigator.bluetooth.requestDevice() call to use 'acceptAllDevices: true' instead of any device filters, and add the device's NUS service UUID '6e400001-b5a3-f393-e0a9-e50e24dcca9e' to the 'optionalServices' array so the browser grants access to that GATT service after pairing.",
       "reqIds": [
         "REQ-1"
       ],
       "version": 1
-    },
-    {
-      "id": "feature-add-a-battery-percentage-indicator-card-widget-to-the-dashboard-page-frontend-src-pages-dashboard-tsx-that-displays-the-current-battery-level-of-the-connected-device-the-widget-should-show-the-numeric-percentage-a-visual-battery-icon-or-progress-bar-that-reflects-the-charge-level-and-a-charging-status-label-when-the-device-is-charging-when-no-device-is-connected-or-battery-data-is-unavailable-display-a-clear-placeholder-state",
-      "title": "Add a battery percentage indicator card/widget to the Dashboard page (frontend/src/pages/Dashboard.tsx) that displays the current battery level of the connected device. The widget should show the numeric percentage, a visual battery icon or progress bar that reflects the charge level, and a 'Charging' status label when the device is charging. When no device is connected or battery data is unavailable, display a clear placeholder state.",
-      "reqIds": [
-        "REQ-2"
-      ],
-      "version": 1
     }
   ],
-  "new_feature_requests": [
-    {
-      "id": "AR-1",
-      "summary": "Add battery percentage display on the dashboard to monitor product charging status",
-      "reqIds": [],
-      "status": "pending"
-    }
-  ],
+  "new_feature_requests": [],
   "gameProjectType": "none",
-  "projectName": "EyeR Monitor",
+  "projectName": "Fix BLE device discovery: enable acceptAllDevices and add optionalServices UUID",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

@@ -3,6 +3,8 @@ import { useState, useCallback, useEffect } from 'react';
 export interface BlinkRateDataPoint {
   timestamp: number;
   blinkRate: number;
+  /** Eye state classification derived from light level thresholds, if available. */
+  eyeState?: 'blink' | 'eyes open' | null;
 }
 
 const STORAGE_KEY = 'blink_history';
@@ -33,10 +35,16 @@ export function useLocalBlinkHistory() {
   const [history, setHistory] = useState<BlinkRateDataPoint[]>(() => loadFromStorage());
   const [lastSaveTime, setLastSaveTime] = useState<number | null>(null);
 
-  const addDataPoint = useCallback((blinkRate: number) => {
+  /**
+   * Adds a new blink rate data point to history.
+   * @param blinkRate - The blink rate value to record.
+   * @param eyeState  - Optional eye state label ('blink' | 'eyes open' | null).
+   */
+  const addDataPoint = useCallback((blinkRate: number, eyeState?: 'blink' | 'eyes open' | null) => {
     const dataPoint: BlinkRateDataPoint = {
       timestamp: Date.now(),
       blinkRate,
+      ...(eyeState !== undefined ? { eyeState } : {}),
     };
 
     setHistory((prev) => {

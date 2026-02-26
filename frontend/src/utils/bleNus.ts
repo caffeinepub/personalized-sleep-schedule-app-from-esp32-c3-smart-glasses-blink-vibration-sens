@@ -11,6 +11,50 @@ export const NUS_RX_CHARACTERISTIC_UUID = '6e400002-b5a3-f393-e0a9-e50e24dcca9e'
 // Client Characteristic Configuration Descriptor (CCCD) UUID
 export const CCCD_UUID = 0x2902;
 
+// ---------------------------------------------------------------------------
+// Eye-state light level threshold constants (inclusive ranges)
+// ---------------------------------------------------------------------------
+
+/**
+ * Maximum light level (exclusive) that classifies as eyes closed.
+ * Any reading strictly below this value is considered eyes closed.
+ */
+export const EYES_CLOSED_MAX = 600;
+
+/** Minimum light level (inclusive) that classifies as a blink (eye closed). */
+export const BLINK_MIN = 1500;
+/** Maximum light level (inclusive) that classifies as a blink (eye closed). */
+export const BLINK_MAX = 1700;
+
+/** Minimum light level (inclusive) that classifies as eyes open. */
+export const EYES_OPEN_MIN = 1800;
+/** Maximum light level (inclusive) that classifies as eyes open. */
+export const EYES_OPEN_MAX = 2000;
+
+/**
+ * Classifies a raw light level reading into an eye state.
+ *
+ * - Returns 'blink'      when lightLevel < EYES_CLOSED_MAX (< 600, exclusive)
+ * - Returns 'blink'      when lightLevel is in [BLINK_MIN, BLINK_MAX]      (1500–1700 inclusive)
+ * - Returns 'eyes open'  when lightLevel is in [EYES_OPEN_MIN, EYES_OPEN_MAX] (1800–2000 inclusive)
+ * - Returns null         for all other values
+ *
+ * @param lightLevel - The numeric light level reading from the sensor
+ * @returns 'blink' | 'eyes open' | null
+ */
+export function parseEyeStateFromLight(lightLevel: number): 'blink' | 'eyes open' | null {
+  if (lightLevel < EYES_CLOSED_MAX) {
+    return 'blink';
+  }
+  if (lightLevel >= BLINK_MIN && lightLevel <= BLINK_MAX) {
+    return 'blink';
+  }
+  if (lightLevel >= EYES_OPEN_MIN && lightLevel <= EYES_OPEN_MAX) {
+    return 'eyes open';
+  }
+  return null;
+}
+
 /**
  * Parses a Nordic UART Service (NUS) notification payload into a numeric blink rate.
  * NUS sends data as UTF-8 text, typically in formats like:

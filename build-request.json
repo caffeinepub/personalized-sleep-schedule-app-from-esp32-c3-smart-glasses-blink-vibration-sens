@@ -1,59 +1,37 @@
 {
   "kind": "build_request",
-  "title": "Add battery percentage display to dashboard",
-  "projectName": "EyeR Monitor",
-  "priority": "normal",
+  "title": "Fix BLE device discovery: enable acceptAllDevices and add optionalServices UUID",
+  "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Parse and expose the battery percentage value from incoming BLE notifications in the Bluetooth context. If the BLE protocol already transmits battery data, extract it; otherwise add a dedicated battery level field to the BLE data model so it can be consumed by the dashboard.",
+      "text": "In the Bluetooth connection request (within BluetoothContext.tsx and/or useEyeRBluetooth.ts), update the navigator.bluetooth.requestDevice() call to use 'acceptAllDevices: true' instead of any device filters, and add the device's NUS service UUID '6e400001-b5a3-f393-e0a9-e50e24dcca9e' to the 'optionalServices' array so the browser grants access to that GATT service after pairing.",
       "target": "frontend",
       "source": {
         "messageIds": [
-          "msg-11"
+          "msg-7"
         ],
         "quotes": [
-          "Add the battery percentage on the dashboard so i can monitor my product when it is charging"
+          "update the Bluetooth request to 'acceptAllDevices: true' and include 'optionalServices' for my device's specific UUID  6e400001-b5a3-f393-e0a9-e50e24dcca9e"
         ]
       },
       "acceptanceCriteria": [
-        "Battery percentage value (0–100) is parsed from BLE notifications when available.",
-        "The value is stored in the BluetoothContext state and updated on each relevant notification.",
-        "When no battery data has been received, the value is represented as undefined/null rather than a misleading default."
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "text": "Add a battery percentage indicator card/widget to the Dashboard page (frontend/src/pages/Dashboard.tsx) that displays the current battery level of the connected device. The widget should show the numeric percentage, a visual battery icon or progress bar that reflects the charge level, and a 'Charging' status label when the device is charging. When no device is connected or battery data is unavailable, display a clear placeholder state.",
-      "target": "frontend",
-      "source": {
-        "messageIds": [
-          "msg-11"
-        ],
-        "quotes": [
-          "Add the battery percentage on the dashboard so i can monitor my product when it is charging"
-        ]
-      },
-      "acceptanceCriteria": [
-        "A battery widget is visible on the Dashboard page.",
-        "The widget displays the current battery percentage as a number (e.g., '72%').",
-        "A visual indicator (icon or progress bar) updates to reflect the battery level.",
-        "A 'Charging' label or icon is shown when the device reports a charging state.",
-        "When battery data is unavailable, the widget shows a placeholder such as '-- %' or 'No data'.",
-        "The widget styling is consistent with the existing dashboard theme."
+        "navigator.bluetooth.requestDevice() is called with { acceptAllDevices: true, optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] } — no 'filters' property is present.",
+        "The device picker dialog appears in the browser and lists the user's BLE device without requiring a name or service filter match.",
+        "After selecting the device, the app can successfully connect to GATT and access the NUS service using UUID 6e400001-b5a3-f393-e0a9-e50e24dcca9e.",
+        "No TypeScript or runtime errors are introduced by the change.",
+        "The hardcoded NUS service UUID in bleNus.ts (if used as the primary service UUID reference) is consistent with 6e400001-b5a3-f393-e0a9-e50e24dcca9e."
       ]
     }
   ],
   "constraints": [
-    "Do not modify files listed in frontend.immutablePaths.",
-    "All changes must be frontend-only unless BLE battery parsing requires a new backend data field.",
-    "Maintain consistency with the existing OKLCH color theme and Tailwind styling conventions."
+    "Do not remove or alter the existing NUS characteristic UUIDs (TX/RX) used for data parsing — only the requestDevice() call options should change.",
+    "Do not modify any files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui."
   ],
   "nonGoals": [
-    "Storing historical battery percentage data in the backend.",
-    "Adding battery alerts or push notifications.",
-    "Modifying the backend Motoko actor for battery data.",
-    "Supporting non-BLE battery monitoring sources."
+    "Adding new BLE device profiles or characteristic parsing logic.",
+    "Changes to the backend canister.",
+    "UI redesign of the DeviceConnection page."
   ],
   "imageRequirements": {
     "required": [],

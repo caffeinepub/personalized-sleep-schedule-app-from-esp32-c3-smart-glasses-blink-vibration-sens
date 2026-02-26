@@ -23,14 +23,6 @@ interface ConnectOptions {
 const MIN_CONNECTION_INTERVAL_MS = 2000;
 const MTU_EXCHANGE_DELAY_MS = 500;
 
-function toServiceString(uuid: string | number): string {
-  if (typeof uuid === 'number') {
-    const hex = uuid.toString(16).padStart(4, '0');
-    return `0000${hex}-0000-1000-8000-00805f9b34fb`;
-  }
-  return uuid;
-}
-
 export function useEyeRBluetooth() {
   const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
   const [error, setError] = useState<string | null>(null);
@@ -269,10 +261,7 @@ export function useEyeRBluetooth() {
 
   const connect = useCallback(async (options: ConnectOptions = {}) => {
     const {
-      serviceUUID = NUS_SERVICE_UUID,
       characteristicUUID = NUS_TX_CHARACTERISTIC_UUID,
-      autoDiscover = true,
-      useCustomProfile = false
     } = options;
 
     if (!isSupported || !navigator.bluetooth) {
@@ -310,43 +299,20 @@ export function useEyeRBluetooth() {
     setBatteryPercentage(undefined);
     setIsCharging(false);
 
-    const isCustomMode = useCustomProfile || !serviceUUID || serviceUUID.toString().trim() === '';
-    
-    const normalizedServiceUUID = serviceUUID && serviceUUID.toString().trim() !== '' 
-      ? normalizeUUID(serviceUUID) 
-      : undefined;
-    const normalizedCharUUID = characteristicUUID && characteristicUUID.toString().trim() !== ''
-      ? normalizeUUID(characteristicUUID)
-      : undefined;
+    const normalizedCharUUID = normalizeUUID(characteristicUUID);
 
     try {
       if (currentAttemptToken !== attemptTokenRef.current) {
         throw new Error('Connection attempt was cancelled');
       }
 
-      let device: BluetoothDevice;
-      
-      if (isCustomMode) {
-        console.log('Using custom/unknown profile mode');
-        const optionalServices: string[] = [NUS_SERVICE_UUID];
-        if (normalizedServiceUUID && normalizedServiceUUID !== NUS_SERVICE_UUID) {
-          optionalServices.push(toServiceString(normalizedServiceUUID));
-        }
-        device = await navigator.bluetooth.requestDevice({
-          acceptAllDevices: true,
-          optionalServices
-        });
-      } else {
-        console.log(`Using known profile mode with service: ${formatUUID(normalizedServiceUUID!)}`);
-        const optionalServices: string[] = [NUS_SERVICE_UUID];
-        if (normalizedServiceUUID !== NUS_SERVICE_UUID) {
-          optionalServices.push(toServiceString(normalizedServiceUUID!));
-        }
-        device = await navigator.bluetooth.requestDevice({
-          filters: [{ services: [normalizedServiceUUID!] }],
-          optionalServices
-        });
-      }
+      // Use acceptAllDevices so the browser shows all nearby BLE devices,
+      // and declare the NUS service UUID in optionalServices so GATT access is granted.
+      console.log('Requesting BLE device (acceptAllDevices, optionalServices: NUS)...');
+      const device = await navigator.bluetooth.requestDevice({
+        acceptAllDevices: true,
+        optionalServices: [NUS_SERVICE_UUID],
+      });
 
       console.log('Step 1: Device Selected');
 
@@ -388,7 +354,7 @@ export function useEyeRBluetooth() {
 
       let characteristic: BluetoothRemoteGATTCharacteristic | null = null;
 
-      // Universal service search
+      // Universal service search — look for NUS service first
       try {
         console.log('Attempting universal service discovery...');
         const allServices = await server.getPrimaryServices();
@@ -420,16 +386,10 @@ export function useEyeRBluetooth() {
           characteristic = txCharacteristic;
           console.log('Step 4: Characteristic Found');
         } else {
-          console.warn('NUS service not found via universal discovery');
-          
-          if (isCustomMode) {
-            console.log('Falling back to cross-service discovery...');
-            characteristic = await discoverNotifyingCharacteristic(server, currentAttemptToken);
-            console.log('Step 3: Service Found');
-            console.log('Step 4: Characteristic Found');
-          } else {
-            throw new Error('Nordic UART Service (NUS) not found on device');
-          }
+          console.warn('NUS service not found via universal discovery, falling back to cross-service discovery...');
+          characteristic = await discoverNotifyingCharacteristic(server, currentAttemptToken);
+          console.log('Step 3: Service Found');
+          console.log('Step 4: Characteristic Found');
         }
       } catch (discoveryError: any) {
         console.error('Service discovery error:', discoveryError);
