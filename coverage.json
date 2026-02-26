@@ -1,0 +1,61 @@
+{
+  "kind": "coverage_report",
+  "version": "1.0",
+  "generatedAt": "2026-02-26T07:16:50.091Z",
+  "sources": {
+    "buildRequest": true,
+    "implementationPlan": true
+  },
+  "requirements": {
+    "total": 2,
+    "implemented": 2,
+    "items": [
+      {
+        "id": "REQ-1",
+        "summary": "Parse and expose the battery percentage value from incoming BLE notifications in the Bluetooth context. If the BLE protocol already transmits battery data, extract it; otherwise add a dedicated battery level field to the BLE data model so it can be consumed by the dashboard.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/utils/bleNus.ts",
+          "frontend/src/contexts/BluetoothContext.tsx",
+          "frontend/src/hooks/useEyeRBluetooth.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/utils/bleNus.ts",
+          "frontend/src/contexts/BluetoothContext.tsx",
+          "frontend/src/hooks/useEyeRBluetooth.ts"
+        ]
+      },
+      {
+        "id": "REQ-2",
+        "summary": "Add a battery percentage indicator card/widget to the Dashboard page (frontend/src/pages/Dashboard.tsx) that displays the current battery level of the connected device. The widget should show the numeric percentage, a visual battery icon or progress bar that reflects the charge level, and a 'Charging' status label when the device is charging. When no device is connected or battery data is unavailable, display a clear placeholder state.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/components/device/BatteryIndicator.tsx",
+          "frontend/src/pages/Dashboard.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/components/device/BatteryIndicator.tsx",
+          "frontend/src/pages/Dashboard.tsx"
+        ]
+      }
+    ]
+  },
+  "changedFiles": [
+    "build-request.json",
+    "build-template/README.md",
+    "caffeine.lock.json",
+    "feature_evidence.json",
+    "frontend-file-summaries.txt",
+    "frontend-implementation-plan.json",
+    "frontend/src/components/device/BatteryIndicator.tsx",
+    "frontend/src/config.ts",
+    "frontend/src/contexts/BluetoothContext.tsx",
+    "frontend/src/hooks/useEyeRBluetooth.ts",
+    "frontend/src/pages/Dashboard.tsx",
+    "frontend/src/utils/bleNus.ts",
+    "project_state.json",
+    "scratch/component-selection.json",
+    "spec.md",
+    "spec_vs_diff_report.json"
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "schemaVersion": "1.0.0",
+  "projectStateVersion": 3,
+  "summary": "Project involves a dashboard with blink detection features and product monitoring capabilities.",
+  "architectural_notes": [],
+  "known_issues": [],
+  "isFixRequest": false,
+  "existing_features": [
+    {
+      "id": "feature-parse-and-expose-the-battery-percentage-value-from-incoming-ble-notifications-in-the-bluetooth-context-if-the-ble-protocol-already-transmits-battery-data-extract-it-otherwise-add-a-dedicated-battery-level-field-to-the-ble-data-model-so-it-can-be-consumed-by-the-dashboard",
+      "title": "Parse and expose the battery percentage value from incoming BLE notifications in the Bluetooth context. If the BLE protocol already transmits battery data, extract it; otherwise add a dedicated battery level field to the BLE data model so it can be consumed by the dashboard.",
+      "reqIds": [
+        "REQ-1"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-a-battery-percentage-indicator-card-widget-to-the-dashboard-page-frontend-src-pages-dashboard-tsx-that-displays-the-current-battery-level-of-the-connected-device-the-widget-should-show-the-numeric-percentage-a-visual-battery-icon-or-progress-bar-that-reflects-the-charge-level-and-a-charging-status-label-when-the-device-is-charging-when-no-device-is-connected-or-battery-data-is-unavailable-display-a-clear-placeholder-state",
+      "title": "Add a battery percentage indicator card/widget to the Dashboard page (frontend/src/pages/Dashboard.tsx) that displays the current battery level of the connected device. The widget should show the numeric percentage, a visual battery icon or progress bar that reflects the charge level, and a 'Charging' status label when the device is charging. When no device is connected or battery data is unavailable, display a clear placeholder state.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "version": 1
+    }
+  ],
+  "new_feature_requests": [
+    {
+      "id": "AR-1",
+      "summary": "Add battery percentage display on the dashboard to monitor product charging status",
+      "reqIds": [],
+      "status": "pending"
+    }
+  ],
+  "gameProjectType": "none",
+  "projectName": "EyeR Monitor",
+  "clarification_mode": "instant",
+  "clarification_rounds": 0
+}
