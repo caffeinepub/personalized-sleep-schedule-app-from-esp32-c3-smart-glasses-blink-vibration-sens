@@ -47,6 +47,7 @@ export interface VibrationEvent {
 export type VibrationEventId = bigint;
 export interface _SERVICE {
   '_initializeAccessControlWithSecret' : ActorMethod<[string], undefined>,
+  'addDataPoint' : ActorMethod<[DeviceId, BlinkRate], [] | [number]>,
   'assignCallerUserRole' : ActorMethod<[Principal, UserRole], undefined>,
   'clearOldData' : ActorMethod<[DeviceId, Timestamp], undefined>,
   'generateSleepRecommendation' : ActorMethod<

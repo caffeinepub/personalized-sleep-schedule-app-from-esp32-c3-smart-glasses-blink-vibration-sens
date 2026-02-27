@@ -1,37 +1,75 @@
 {
   "kind": "build_request",
-  "title": "Fix BLE device discovery: enable acceptAllDevices and add optionalServices UUID",
+  "title": "Fix 5-minute rolling average: Float precision, strict pruning, and drift-free sum",
   "priority": "high",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "In the Bluetooth connection request (within BluetoothContext.tsx and/or useEyeRBluetooth.ts), update the navigator.bluetooth.requestDevice() call to use 'acceptAllDevices: true' instead of any device filters, and add the device's NUS service UUID '6e400001-b5a3-f393-e0a9-e50e24dcca9e' to the 'optionalServices' array so the browser grants access to that GATT service after pairing.",
-      "target": "frontend",
+      "text": "Update the rolling average calculation in the Motoko backend to use Float arithmetic instead of integer arithmetic, so the computed average retains decimal precision.",
+      "target": "backend",
       "source": {
         "messageIds": [
-          "msg-7"
+          "msg-latest"
         ],
         "quotes": [
-          "update the Bluetooth request to 'acceptAllDevices: true' and include 'optionalServices' for my device's specific UUID  6e400001-b5a3-f393-e0a9-e50e24dcca9e"
+          "Use Float for the average calculation to ensure decimal precision."
         ]
       },
       "acceptanceCriteria": [
-        "navigator.bluetooth.requestDevice() is called with { acceptAllDevices: true, optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] } — no 'filters' property is present.",
-        "The device picker dialog appears in the browser and lists the user's BLE device without requiring a name or service filter match.",
-        "After selecting the device, the app can successfully connect to GATT and access the NUS service using UUID 6e400001-b5a3-f393-e0a9-e50e24dcca9e.",
-        "No TypeScript or runtime errors are introduced by the change.",
-        "The hardcoded NUS service UUID in bleNus.ts (if used as the primary service UUID reference) is consistent with 6e400001-b5a3-f393-e0a9-e50e24dcca9e."
+        "The average value stored and returned is a Float (e.g., 14.6 rather than 14).",
+        "Division in the average calculation uses Float division, not integer division.",
+        "Existing Motoko type definitions updated wherever the rolling average is typed as Int or Nat."
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "text": "Implement a strict pruning function in the Motoko backend that removes all data points whose timestamps are older than 300,000 milliseconds (5 minutes) relative to the current time, and invoke this function before every rolling average calculation.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-latest"
+        ],
+        "quotes": [
+          "Implement a strict pruning function that removes any data points older than 300,000 milliseconds (5 mins) before every calculation."
+        ]
+      },
+      "acceptanceCriteria": [
+        "A dedicated pruning function (or inline logic) filters the buffer to retain only entries with timestamp >= (now - 300_000) milliseconds.",
+        "Pruning runs unconditionally before the average is computed on every new BLE data event.",
+        "Data points exactly at the 300,000 ms boundary are retained; points beyond it are discarded.",
+        "The pruned buffer is used as the sole input for the subsequent average calculation."
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "text": "Ensure the running sum used in the rolling average is fully discarded and recalculated from scratch using the current pruned buffer on every new BLE event, eliminating any accumulated drift from incremental sum updates.",
+      "target": "backend",
+      "source": {
+        "messageIds": [
+          "msg-latest"
+        ],
+        "quotes": [
+          "Ensure the 'sum' is reset and recalculated from the current buffer on every new BLE event to prevent drift."
+        ]
+      },
+      "acceptanceCriteria": [
+        "No persistent or incremental 'sum' variable is carried between BLE events.",
+        "On each new BLE event, after pruning, the sum is computed by iterating over all remaining buffer entries.",
+        "The average equals the freshly computed sum divided by the current buffer length as a Float.",
+        "If the buffer is empty after pruning, the average returns 0.0 or an appropriate null/option value."
       ]
     }
   ],
   "constraints": [
-    "Do not remove or alter the existing NUS characteristic UUIDs (TX/RX) used for data parsing — only the requestDevice() call options should change.",
-    "Do not modify any files under frontend/src/hooks/useInternetIdentity.ts, frontend/src/hooks/useActor.ts, frontend/src/main.tsx, or frontend/src/components/ui."
+    "All changes must remain within the single Motoko actor in backend/main.mo.",
+    "Do not modify any frontend immutable paths.",
+    "Preserve all existing public API method signatures unless a Float return type change is strictly required by the fix."
   ],
   "nonGoals": [
-    "Adding new BLE device profiles or characteristic parsing logic.",
-    "Changes to the backend canister.",
-    "UI redesign of the DeviceConnection page."
+    "Changing how BLE data is collected or transmitted on the frontend.",
+    "Modifying the frontend rolling average hook (useRollingBlinkRateAverage5Min.ts).",
+    "Adding new backend endpoints or data types unrelated to the rolling average fix.",
+    "UI changes of any kind."
   ],
   "imageRequirements": {
     "required": [],

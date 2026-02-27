@@ -1,25 +1,4 @@
 {
   "kind": "feature_evidence_report",
-  "features": [
-    {
-      "featureId": "feature-in-the-bluetooth-connection-request-within-bluetoothcontext-tsx-and-or-useeyerbluetooth-ts-update-the-navigator-bluetooth-requestdevice-call-to-use-acceptalldevices-true-instead-of-any-device-filters-and-add-the-device-s-nus-service-uuid-6e400001-b5a3-f393-e0a9-e50e24dcca9e-to-the-optionalservices-array-so-the-browser-grants-access-to-that-gatt-service-after-pairing",
-      "featureTitle": "In the Bluetooth connection request (within BluetoothContext.tsx and/or useEyeRBluetooth.ts), update the navigator.bluetooth.requestDevice() call to use 'acceptAllDevices: true' instead of any device filters, and add the device's NUS service UUID '6e400001-b5a3-f393-e0a9-e50e24dcca9e' to the 'optionalServices' array so the browser grants access to that GATT service after pairing.",
-      "files": [
-        "frontend/src/contexts/BluetoothContext.tsx",
-        "frontend/src/hooks/useEyeRBluetooth.ts"
-      ],
-      "components": [
-        "authorization@4.0.0",
-        "core-infrastructure@1.0.2",
-        "shadcn-ui@1.0.0",
-        "build-template-react@1.0.0",
-        "initial-app@1.0.0",
-        "github-export-icp-cli@1.0.0"
-      ],
-      "testIds": [
-        "REQ-1"
-      ],
-      "confidence": "high"
-    }
-  ]
+  "features": []
 }

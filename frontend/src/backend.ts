@@ -130,6 +130,7 @@ export enum UserRole {
 }
 export interface backendInterface {
     _initializeAccessControlWithSecret(userSecret: string): Promise<void>;
+    addDataPoint(deviceId: DeviceId, value: BlinkRate): Promise<number | null>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     clearOldData(deviceId: DeviceId, thresholdTime: Timestamp): Promise<void>;
     generateSleepRecommendation(deviceId: DeviceId, analysisWindowStart: Timestamp, analysisWindowEnd: Timestamp): Promise<SleepRecommendation>;
@@ -164,17 +165,31 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async addDataPoint(arg0: DeviceId, arg1: BlinkRate): Promise<number | null> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.addDataPoint(arg0, arg1);
+                return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.addDataPoint(arg0, arg1);
+            return from_candid_opt_n1(this._uploadFile, this._downloadFile, result);
+        }
+    }
     async assignCallerUserRole(arg0: Principal, arg1: UserRole): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n1(this._uploadFile, this._downloadFile, arg1));
+                const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n2(this._uploadFile, this._downloadFile, arg1));
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n1(this._uploadFile, this._downloadFile, arg1));
+            const result = await this.actor.assignCallerUserRole(arg0, to_candid_UserRole_n2(this._uploadFile, this._downloadFile, arg1));
             return result;
         }
     }
@@ -210,112 +225,112 @@ export class Backend implements backendInterface {
         if (this.processError) {
             try {
                 const result = await this.actor.getBlinkRates(arg0);
-                return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n4(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getBlinkRates(arg0);
-            return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n4(this._uploadFile, this._downloadFile, result);
         }
     }
     async getBlinkRatesInTimeRange(arg0: DeviceId, arg1: Timestamp, arg2: Timestamp): Promise<Array<BlinkRateMeasurement>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getBlinkRatesInTimeRange(arg0, arg1, arg2);
-                return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n4(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getBlinkRatesInTimeRange(arg0, arg1, arg2);
-            return from_candid_vec_n3(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n4(this._uploadFile, this._downloadFile, result);
         }
     }
     async getBlinkSummariesInTimeRange(arg0: DeviceId, arg1: Timestamp, arg2: Timestamp): Promise<Array<BlinkSummary>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getBlinkSummariesInTimeRange(arg0, arg1, arg2);
-                return from_candid_vec_n7(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n8(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getBlinkSummariesInTimeRange(arg0, arg1, arg2);
-            return from_candid_vec_n7(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n8(this._uploadFile, this._downloadFile, result);
         }
     }
     async getCallerUserProfile(): Promise<UserProfile | null> {
         if (this.processError) {
             try {
                 const result = await this.actor.getCallerUserProfile();
-                return from_candid_opt_n11(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n12(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getCallerUserProfile();
-            return from_candid_opt_n11(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n12(this._uploadFile, this._downloadFile, result);
         }
     }
     async getCallerUserRole(): Promise<UserRole> {
         if (this.processError) {
             try {
                 const result = await this.actor.getCallerUserRole();
-                return from_candid_UserRole_n12(this._uploadFile, this._downloadFile, result);
+                return from_candid_UserRole_n13(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getCallerUserRole();
-            return from_candid_UserRole_n12(this._uploadFile, this._downloadFile, result);
+            return from_candid_UserRole_n13(this._uploadFile, this._downloadFile, result);
         }
     }
     async getUserProfile(arg0: Principal): Promise<UserProfile | null> {
         if (this.processError) {
             try {
                 const result = await this.actor.getUserProfile(arg0);
-                return from_candid_opt_n11(this._uploadFile, this._downloadFile, result);
+                return from_candid_opt_n12(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getUserProfile(arg0);
-            return from_candid_opt_n11(this._uploadFile, this._downloadFile, result);
+            return from_candid_opt_n12(this._uploadFile, this._downloadFile, result);
         }
     }
     async getVibrationEvents(arg0: DeviceId): Promise<Array<VibrationEvent>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getVibrationEvents(arg0);
-                return from_candid_vec_n14(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n15(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getVibrationEvents(arg0);
-            return from_candid_vec_n14(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n15(this._uploadFile, this._downloadFile, result);
         }
     }
     async getVibrationEventsInTimeRange(arg0: DeviceId, arg1: Timestamp, arg2: Timestamp): Promise<Array<VibrationEvent>> {
         if (this.processError) {
             try {
                 const result = await this.actor.getVibrationEventsInTimeRange(arg0, arg1, arg2);
-                return from_candid_vec_n14(this._uploadFile, this._downloadFile, result);
+                return from_candid_vec_n15(this._uploadFile, this._downloadFile, result);
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
             const result = await this.actor.getVibrationEventsInTimeRange(arg0, arg1, arg2);
-            return from_candid_vec_n14(this._uploadFile, this._downloadFile, result);
+            return from_candid_vec_n15(this._uploadFile, this._downloadFile, result);
         }
     }
     async isCallerAdmin(): Promise<boolean> {
@@ -349,14 +364,14 @@ export class Backend implements backendInterface {
     async recordBlinkSummary(arg0: DeviceId, arg1: BlinkSummary): Promise<void> {
         if (this.processError) {
             try {
-                const result = await this.actor.recordBlinkSummary(arg0, to_candid_BlinkSummary_n17(this._uploadFile, this._downloadFile, arg1));
+                const result = await this.actor.recordBlinkSummary(arg0, to_candid_BlinkSummary_n18(this._uploadFile, this._downloadFile, arg1));
                 return result;
             } catch (e) {
                 this.processError(e);
                 throw new Error("unreachable");
             }
         } else {
-            const result = await this.actor.recordBlinkSummary(arg0, to_candid_BlinkSummary_n17(this._uploadFile, this._downloadFile, arg1));
+            const result = await this.actor.recordBlinkSummary(arg0, to_candid_BlinkSummary_n18(this._uploadFile, this._downloadFile, arg1));
             return result;
         }
     }
@@ -389,64 +404,31 @@ export class Backend implements backendInterface {
         }
     }
 }
-function from_candid_BlinkRateMeasurement_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _BlinkRateMeasurement): BlinkRateMeasurement {
-    return from_candid_record_n5(_uploadFile, _downloadFile, value);
+function from_candid_BlinkRateMeasurement_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _BlinkRateMeasurement): BlinkRateMeasurement {
+    return from_candid_record_n6(_uploadFile, _downloadFile, value);
 }
-function from_candid_BlinkSummary_n8(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _BlinkSummary): BlinkSummary {
-    return from_candid_record_n9(_uploadFile, _downloadFile, value);
+function from_candid_BlinkSummary_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _BlinkSummary): BlinkSummary {
+    return from_candid_record_n10(_uploadFile, _downloadFile, value);
 }
-function from_candid_UserRole_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserRole): UserRole {
-    return from_candid_variant_n13(_uploadFile, _downloadFile, value);
+function from_candid_UserRole_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _UserRole): UserRole {
+    return from_candid_variant_n14(_uploadFile, _downloadFile, value);
 }
-function from_candid_VibrationEvent_n15(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _VibrationEvent): VibrationEvent {
-    return from_candid_record_n16(_uploadFile, _downloadFile, value);
+function from_candid_VibrationEvent_n16(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: _VibrationEvent): VibrationEvent {
+    return from_candid_record_n17(_uploadFile, _downloadFile, value);
 }
-function from_candid_opt_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [bigint]): bigint | null {
+function from_candid_opt_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [number]): number | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_opt_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_UserProfile]): UserProfile | null {
+function from_candid_opt_n11(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [bigint]): bigint | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_opt_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [Principal]): Principal | null {
+function from_candid_opt_n12(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [_UserProfile]): UserProfile | null {
     return value.length === 0 ? null : value[0];
 }
-function from_candid_record_n16(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    eventId: _VibrationEventId;
-    userPrincipal: [] | [Principal];
-    deviceId: _DeviceId;
-    timestamp: _Timestamp;
-}): {
-    eventId: VibrationEventId;
-    userPrincipal?: Principal;
-    deviceId: DeviceId;
-    timestamp: Timestamp;
-} {
-    return {
-        eventId: value.eventId,
-        userPrincipal: record_opt_to_undefined(from_candid_opt_n6(_uploadFile, _downloadFile, value.userPrincipal)),
-        deviceId: value.deviceId,
-        timestamp: value.timestamp
-    };
+function from_candid_opt_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: [] | [Principal]): Principal | null {
+    return value.length === 0 ? null : value[0];
 }
-function from_candid_record_n5(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
-    userPrincipal: [] | [Principal];
-    deviceId: _DeviceId;
-    timestamp: _Timestamp;
-    blinkRate: _BlinkRate;
-}): {
-    userPrincipal?: Principal;
-    deviceId: DeviceId;
-    timestamp: Timestamp;
-    blinkRate: BlinkRate;
-} {
-    return {
-        userPrincipal: record_opt_to_undefined(from_candid_opt_n6(_uploadFile, _downloadFile, value.userPrincipal)),
-        deviceId: value.deviceId,
-        timestamp: value.timestamp,
-        blinkRate: value.blinkRate
-    };
-}
-function from_candid_record_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_record_n10(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     averageBlinkRate: [] | [bigint];
     maxBlinkRate: [] | [bigint];
     totalBlinks: bigint;
@@ -464,16 +446,52 @@ function from_candid_record_n9(_uploadFile: (file: ExternalBlob) => Promise<Uint
     minBlinkRate?: bigint;
 } {
     return {
-        averageBlinkRate: record_opt_to_undefined(from_candid_opt_n10(_uploadFile, _downloadFile, value.averageBlinkRate)),
-        maxBlinkRate: record_opt_to_undefined(from_candid_opt_n10(_uploadFile, _downloadFile, value.maxBlinkRate)),
+        averageBlinkRate: record_opt_to_undefined(from_candid_opt_n11(_uploadFile, _downloadFile, value.averageBlinkRate)),
+        maxBlinkRate: record_opt_to_undefined(from_candid_opt_n11(_uploadFile, _downloadFile, value.maxBlinkRate)),
         totalBlinks: value.totalBlinks,
-        userPrincipal: record_opt_to_undefined(from_candid_opt_n6(_uploadFile, _downloadFile, value.userPrincipal)),
+        userPrincipal: record_opt_to_undefined(from_candid_opt_n7(_uploadFile, _downloadFile, value.userPrincipal)),
         deviceId: value.deviceId,
         timestamp: value.timestamp,
-        minBlinkRate: record_opt_to_undefined(from_candid_opt_n10(_uploadFile, _downloadFile, value.minBlinkRate))
+        minBlinkRate: record_opt_to_undefined(from_candid_opt_n11(_uploadFile, _downloadFile, value.minBlinkRate))
     };
 }
-function from_candid_variant_n13(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function from_candid_record_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    eventId: _VibrationEventId;
+    userPrincipal: [] | [Principal];
+    deviceId: _DeviceId;
+    timestamp: _Timestamp;
+}): {
+    eventId: VibrationEventId;
+    userPrincipal?: Principal;
+    deviceId: DeviceId;
+    timestamp: Timestamp;
+} {
+    return {
+        eventId: value.eventId,
+        userPrincipal: record_opt_to_undefined(from_candid_opt_n7(_uploadFile, _downloadFile, value.userPrincipal)),
+        deviceId: value.deviceId,
+        timestamp: value.timestamp
+    };
+}
+function from_candid_record_n6(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+    userPrincipal: [] | [Principal];
+    deviceId: _DeviceId;
+    timestamp: _Timestamp;
+    blinkRate: _BlinkRate;
+}): {
+    userPrincipal?: Principal;
+    deviceId: DeviceId;
+    timestamp: Timestamp;
+    blinkRate: BlinkRate;
+} {
+    return {
+        userPrincipal: record_opt_to_undefined(from_candid_opt_n7(_uploadFile, _downloadFile, value.userPrincipal)),
+        deviceId: value.deviceId,
+        timestamp: value.timestamp,
+        blinkRate: value.blinkRate
+    };
+}
+function from_candid_variant_n14(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     admin: null;
 } | {
     user: null;
@@ -482,22 +500,22 @@ function from_candid_variant_n13(_uploadFile: (file: ExternalBlob) => Promise<Ui
 }): UserRole {
     return "admin" in value ? UserRole.admin : "user" in value ? UserRole.user : "guest" in value ? UserRole.guest : value;
 }
-function from_candid_vec_n14(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_VibrationEvent>): Array<VibrationEvent> {
-    return value.map((x)=>from_candid_VibrationEvent_n15(_uploadFile, _downloadFile, x));
+function from_candid_vec_n15(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_VibrationEvent>): Array<VibrationEvent> {
+    return value.map((x)=>from_candid_VibrationEvent_n16(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_BlinkRateMeasurement>): Array<BlinkRateMeasurement> {
-    return value.map((x)=>from_candid_BlinkRateMeasurement_n4(_uploadFile, _downloadFile, x));
+function from_candid_vec_n4(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_BlinkRateMeasurement>): Array<BlinkRateMeasurement> {
+    return value.map((x)=>from_candid_BlinkRateMeasurement_n5(_uploadFile, _downloadFile, x));
 }
-function from_candid_vec_n7(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_BlinkSummary>): Array<BlinkSummary> {
-    return value.map((x)=>from_candid_BlinkSummary_n8(_uploadFile, _downloadFile, x));
+function from_candid_vec_n8(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: Array<_BlinkSummary>): Array<BlinkSummary> {
+    return value.map((x)=>from_candid_BlinkSummary_n9(_uploadFile, _downloadFile, x));
 }
-function to_candid_BlinkSummary_n17(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: BlinkSummary): _BlinkSummary {
-    return to_candid_record_n18(_uploadFile, _downloadFile, value);
+function to_candid_BlinkSummary_n18(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: BlinkSummary): _BlinkSummary {
+    return to_candid_record_n19(_uploadFile, _downloadFile, value);
 }
-function to_candid_UserRole_n1(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): _UserRole {
-    return to_candid_variant_n2(_uploadFile, _downloadFile, value);
+function to_candid_UserRole_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): _UserRole {
+    return to_candid_variant_n3(_uploadFile, _downloadFile, value);
 }
-function to_candid_record_n18(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
+function to_candid_record_n19(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: {
     averageBlinkRate?: bigint;
     maxBlinkRate?: bigint;
     totalBlinks: bigint;
@@ -524,7 +542,7 @@ function to_candid_record_n18(_uploadFile: (file: ExternalBlob) => Promise<Uint8
         minBlinkRate: value.minBlinkRate ? candid_some(value.minBlinkRate) : candid_none()
     };
 }
-function to_candid_variant_n2(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): {
+function to_candid_variant_n3(_uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, value: UserRole): {
     admin: null;
 } | {
     user: null;

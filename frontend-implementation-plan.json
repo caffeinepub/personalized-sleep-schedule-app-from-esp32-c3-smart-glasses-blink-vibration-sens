@@ -1,35 +1,6 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix BLE device discovery: enable acceptAllDevices and add optionalServices UUID",
-  "requirements": [
-    {
-      "id": "REQ-1",
-      "summary": "Update Bluetooth connection request to use acceptAllDevices and add NUS service UUID to optionalServices",
-      "acceptanceCriteria": [
-        "navigator.bluetooth.requestDevice() is called with { acceptAllDevices: true, optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] } — no 'filters' property is present.",
-        "The device picker dialog appears in the browser and lists the user's BLE device without requiring a name or service filter match.",
-        "After selecting the device, the app can successfully connect to GATT and access the NUS service using UUID 6e400001-b5a3-f393-e0a9-e50e24dcca9e.",
-        "No TypeScript or runtime errors are introduced by the change.",
-        "The hardcoded NUS service UUID in bleNus.ts (if used as the primary service UUID reference) is consistent with 6e400001-b5a3-f393-e0a9-e50e24dcca9e."
-      ],
-      "file_operations": [
-        {
-          "path": "frontend/src/contexts/BluetoothContext.tsx",
-          "operation": "modify",
-          "description": "Update the navigator.bluetooth.requestDevice() call within the connect handler to use { acceptAllDevices: true, optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] } instead of any device name or service filters. This allows the browser to display all available BLE devices and grants access to the NUS service UUID after pairing."
-        },
-        {
-          "path": "frontend/src/hooks/useEyeRBluetooth.ts",
-          "operation": "modify",
-          "description": "Update the navigator.bluetooth.requestDevice() call in the connect function to use { acceptAllDevices: true, optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] } instead of filters. Ensure the NUS service UUID reference matches 6e400001-b5a3-f393-e0a9-e50e24dcca9e throughout the connection and GATT access logic."
-        },
-        {
-          "path": "frontend/src/utils/bleNus.ts",
-          "operation": "modify",
-          "description": "Verify that the NUS_SERVICE_UUID constant is set to '6e400001-b5a3-f393-e0a9-e50e24dcca9e'. If it differs, update it to match. Ensure TX and RX characteristic UUIDs remain unchanged as per the constraint."
-        }
-      ]
-    }
-  ]
+  "title": "Fix 5-minute rolling average: Float precision, strict pruning, and drift-free sum",
+  "requirements": []
 }

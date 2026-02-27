@@ -1,25 +1,43 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Eye-tracking web app with BLE connectivity support, deployed on Internet Computer. Currently on Version 38 with eye blink/open detection features and BLE integration using Nordic UART Service UUID.",
+  "summary": "BLE-connected app with Motoko backend that calculates a 5-minute rolling average of sensor data. Backend logic being updated for Float precision, strict time-based pruning, and drift-free sum recalculation.",
   "architectural_notes": [
-    "BLE connection uses acceptAllDevices: true with optionalServices including UUID 6e400001-b5a3-f393-e0a9-e50e24dcca9e (Nordic UART Service)"
+    "Motoko backend uses Float for rolling average calculations to ensure decimal precision",
+    "Rolling average uses strict pruning: data points older than 300,000ms (5 mins) are removed before every calculation",
+    "Sum is reset and recalculated from the current buffer on every new BLE event to prevent drift"
   ],
   "known_issues": [],
   "isFixRequest": true,
-  "existing_features": [
+  "existing_features": [],
+  "new_feature_requests": [
     {
-      "id": "feature-in-the-bluetooth-connection-request-within-bluetoothcontext-tsx-and-or-useeyerbluetooth-ts-update-the-navigator-bluetooth-requestdevice-call-to-use-acceptalldevices-true-instead-of-any-device-filters-and-add-the-device-s-nus-service-uuid-6e400001-b5a3-f393-e0a9-e50e24dcca9e-to-the-optionalservices-array-so-the-browser-grants-access-to-that-gatt-service-after-pairing",
-      "title": "In the Bluetooth connection request (within BluetoothContext.tsx and/or useEyeRBluetooth.ts), update the navigator.bluetooth.requestDevice() call to use 'acceptAllDevices: true' instead of any device filters, and add the device's NUS service UUID '6e400001-b5a3-f393-e0a9-e50e24dcca9e' to the 'optionalServices' array so the browser grants access to that GATT service after pairing.",
+      "id": "AR-1",
+      "summary": "Update the rolling average calculation in the Motoko backend to use Float arithmetic instead of integer arithmetic, so the computed average retains decimal precision.",
       "reqIds": [
         "REQ-1"
       ],
-      "version": 1
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Implement a strict pruning function in the Motoko backend that removes all data points whose timestamps are older than 300,000 milliseconds (5 minutes) relative to the current time, and invoke this function before every rolling average calculation.",
+      "reqIds": [
+        "REQ-2"
+      ],
+      "status": "pending"
+    },
+    {
+      "id": "AR-3",
+      "summary": "Ensure the running sum used in the rolling average is fully discarded and recalculated from scratch using the current pruned buffer on every new BLE event, eliminating any accumulated drift from incremental sum updates.",
+      "reqIds": [
+        "REQ-3"
+      ],
+      "status": "pending"
     }
   ],
-  "new_feature_requests": [],
   "gameProjectType": "none",
-  "projectName": "Fix BLE device discovery: enable acceptAllDevices and add optionalServices UUID",
+  "projectName": "Fix 5-minute rolling average: Float precision, strict pruning, and drift-free sum",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

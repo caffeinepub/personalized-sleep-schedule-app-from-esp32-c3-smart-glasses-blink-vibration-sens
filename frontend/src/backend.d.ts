@@ -47,6 +47,7 @@ export enum UserRole {
     guest = "guest"
 }
 export interface backendInterface {
+    addDataPoint(deviceId: DeviceId, value: BlinkRate): Promise<number | null>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     clearOldData(deviceId: DeviceId, thresholdTime: Timestamp): Promise<void>;
     generateSleepRecommendation(deviceId: DeviceId, analysisWindowStart: Timestamp, analysisWindowEnd: Timestamp): Promise<SleepRecommendation>;

@@ -1,15 +1,41 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-26T11:41:57.238Z",
-  "summary": "The diff modifies BluetoothContext.tsx and useEyeRBluetooth.ts, which are the correct files for REQ-1. However, the diff content is truncated and does not explicitly show the navigator.bluetooth.requestDevice() call with { acceptAllDevices: true, optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] }. The file summaries in frontend-file-summaries.txt and the architectural notes in project_state.json reference 'acceptAllDevices: true' and the NUS UUID, suggesting the change was implemented. Given the truncation, the evidence is indirect but consistent with the requirement being fulfilled.",
-  "missing_requirements": [],
+  "generatedAt": "2026-02-27T02:09:19.112Z",
+  "summary": "The diff modifies backend/main.mo and project_state.json. The project_state.json marks all three requirements as 'pending', suggesting they have not yet been implemented. The backend/main.mo diff is truncated, so we can only partially verify the implementation. From the visible portion of main.mo, the type definitions still show averageBlinkRate as ?Nat in BlinkSummary (not Float), which conflicts with REQ-1. The Float import is present, but no pruning function, no fresh-sum recalculation logic, and no Float-based average computation is visible in the truncated diff. The project_state.json explicitly marks all three feature requests as pending, strongly indicating none of the requirements are implemented.",
+  "missing_requirements": [
+    {
+      "id": "REQ-1",
+      "requirement": "Update the rolling average calculation to use Float arithmetic; average stored/returned as Float; type definitions updated from Int/Nat to Float where applicable.",
+      "reason": "The visible type definitions in main.mo still use averageBlinkRate as ?Nat in BlinkSummary, not Float. The project_state.json marks AR-1 (REQ-1) as pending. No Float division logic is visible in the truncated diff.",
+      "evidence": [
+        "backend/main.mo",
+        "project_state.json"
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "requirement": "Implement strict pruning that filters entries older than 300,000ms before every rolling average calculation.",
+      "reason": "No pruning function or inline pruning logic is visible in the truncated diff. project_state.json marks AR-2 (REQ-2) as pending.",
+      "evidence": [
+        "backend/main.mo",
+        "project_state.json"
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "requirement": "Discard any persistent/incremental sum and recalculate from scratch on every BLE event using the pruned buffer.",
+      "reason": "No fresh sum recalculation logic is visible in the truncated diff. project_state.json marks AR-3 (REQ-3) as pending.",
+      "evidence": [
+        "backend/main.mo",
+        "project_state.json"
+      ]
+    }
+  ],
   "hallucinated_features": [],
   "confidence": 0.72,
   "changed_files": [
-    "frontend-file-summaries.txt",
-    "frontend/src/contexts/BluetoothContext.tsx",
-    "frontend/src/hooks/useEyeRBluetooth.ts",
+    "backend/main.mo",
     "project_state.json"
   ]
 }

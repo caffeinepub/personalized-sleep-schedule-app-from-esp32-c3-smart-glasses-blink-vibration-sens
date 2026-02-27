@@ -1,10 +1,12 @@
 # Specification
 
 ## Summary
-**Goal:** Fix BLE device discovery by updating the Bluetooth connection request to use `acceptAllDevices: true` and include the NUS service UUID as an optional service.
+**Goal:** Fix the 5-minute rolling average calculation in the Motoko backend to use Float precision, strict time-window pruning, and a drift-free sum recomputed from scratch on every BLE event.
 
 **Planned changes:**
-- Update `navigator.bluetooth.requestDevice()` in `BluetoothContext.tsx` and/or `useEyeRBluetooth.ts` to use `{ acceptAllDevices: true, optionalServices: ['6e400001-b5a3-f393-e0a9-e50e24dcca9e'] }`, removing any existing `filters` property.
-- Ensure the NUS service UUID `6e400001-b5a3-f393-e0a9-e50e24dcca9e` in `bleNus.ts` is consistent with the value used in the request.
+- Update the rolling average calculation in `backend/main.mo` to use Float arithmetic instead of integer division, so the result retains decimal precision (e.g., 14.6 instead of 14).
+- Implement strict pruning logic that removes all buffer entries with timestamps older than 300,000 milliseconds before every rolling average calculation.
+- Remove any persistent or incremental running sum; recompute the sum by iterating over the full pruned buffer on each new BLE event to eliminate accumulated drift.
+- Return 0.0 (or an appropriate option value) when the buffer is empty after pruning.
 
-**User-visible outcome:** The browser's BLE device picker will show all nearby devices without requiring a name or service filter match, and the app can successfully connect to the user's BLE device and access its NUS GATT service after pairing.
+**User-visible outcome:** The 5-minute rolling blink rate average will reflect accurate decimal values and will never include stale data points beyond the 5-minute window, with no drift over time.
