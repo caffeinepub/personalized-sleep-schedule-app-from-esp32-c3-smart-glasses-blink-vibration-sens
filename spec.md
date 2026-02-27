@@ -1,12 +1,13 @@
 # Specification
 
 ## Summary
-**Goal:** Fix the 5-minute rolling average calculation in the Motoko backend to use Float precision, strict time-window pruning, and a drift-free sum recomputed from scratch on every BLE event.
+**Goal:** Add an actuation latency timer to the EyeR Sleep Monitor that measures the time (in milliseconds) between receiving an 'eye-closed' BLE signal and issuing the 'trigger-vibration' command, and displays this metric on the dashboard.
 
 **Planned changes:**
-- Update the rolling average calculation in `backend/main.mo` to use Float arithmetic instead of integer division, so the result retains decimal precision (e.g., 14.6 instead of 14).
-- Implement strict pruning logic that removes all buffer entries with timestamps older than 300,000 milliseconds before every rolling average calculation.
-- Remove any persistent or incremental running sum; recompute the sum by iterating over the full pruned buffer on each new BLE event to eliminate accumulated drift.
-- Return 0.0 (or an appropriate option value) when the buffer is empty after pruning.
+- Add a backend function to record the timestamp (ms) when an 'eye-closed' signal is received, stored in stable storage (overwrites on each new signal)
+- Add a backend function that, when vibration is triggered, computes and stores the latency as `(current time ms) - (eye-closed time ms)`, returning the value or -1 if no prior eye-closed timestamp exists
+- Add a backend query function to retrieve the most recently computed actuation latency without re-triggering vibration
+- Update the BLE context/hook in the frontend to call `recordEyeClosedTimestamp()` on eye-close and `triggerVibrationAndGetLatency()` on vibration trigger, making the latency value available via shared state
+- Add an "Actuation Latency (ms)" metric card to the Dashboard that polls `getActuationLatency()` every 2 seconds via React Query, displaying the value in ms or "—" when no data is available
 
-**User-visible outcome:** The 5-minute rolling blink rate average will reflect accurate decimal values and will never include stale data points beyond the 5-minute window, with no drift over time.
+**User-visible outcome:** The dashboard shows a live "Actuation Latency (ms)" card that automatically updates with the time elapsed between eye closure detection and vibration trigger, giving users real-time feedback on system response time.

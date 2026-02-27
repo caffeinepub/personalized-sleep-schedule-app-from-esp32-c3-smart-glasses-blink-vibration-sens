@@ -1,6 +1,55 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Fix 5-minute rolling average: Float precision, strict pruning, and drift-free sum",
-  "requirements": []
+  "title": "Add Actuation Latency Timer (eye-closed → trigger-vibration)",
+  "requirements": [
+    {
+      "id": "REQ-4",
+      "summary": "Wire BLE event detection to backend latency recording endpoints",
+      "acceptanceCriteria": [
+        "The BLE context (BluetoothContext.tsx or useEyeRBluetooth.ts) calls recordEyeClosedTimestamp() on the backend actor when eye state transitions to 'closed'.",
+        "When a trigger-vibration BLE write is initiated, the frontend calls triggerVibrationAndCalculateLatency() and captures the returned latency.",
+        "The latency value is made available via React context or a shared state so the Dashboard can consume it."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/contexts/BluetoothContext.tsx",
+          "operation": "modify",
+          "description": "Add logic to call the backend recordEyeClosedTimestamp() method whenever the eye state transitions from 'open' to 'closed'. Import useActor hook to access the backend actor. Track eye state changes and invoke the backend capability when the transition occurs. Store the returned latency from triggerVibrationAndCalculateLatency() in React state and expose it via the context value."
+        },
+        {
+          "path": "frontend/src/hooks/useEyeRBluetooth.ts",
+          "operation": "modify",
+          "description": "If trigger-vibration BLE writes are initiated from this hook, add a call to the backend triggerVibrationAndCalculateLatency() method immediately after dispatching the BLE write command. Use the useActor hook to access the backend actor. Capture and return the latency value so it can be consumed by the calling component or context."
+        }
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "summary": "Display Actuation Latency metric on Dashboard with polling",
+      "acceptanceCriteria": [
+        "A clearly labeled card or stat widget titled 'Actuation Latency (ms)' is visible on the Dashboard.",
+        "The displayed value refreshes automatically via React Query polling (≤ 2-second interval).",
+        "When no latency data is available, the card displays '—' or 'No data'.",
+        "The value is displayed as a whole number in milliseconds (e.g., '142 ms')."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/hooks/useQueries.ts",
+          "operation": "modify",
+          "description": "Add a new React Query hook useActuationLatency() that queries the backend getMostRecentActuationLatency() method with a 2-second refetch interval. Return the query result including loading, error, and data states. Handle the case where the backend returns null (no latency data available yet)."
+        },
+        {
+          "path": "frontend/src/components/device/ActuationLatencyCard.tsx",
+          "operation": "create",
+          "description": "Create a new card component that displays the 'Actuation Latency (ms)' metric. Use the useActuationLatency() hook from useQueries.ts to fetch the latency data with automatic 2-second polling. Display the latency value as a formatted number with 'ms' suffix (e.g., '142 ms'). Show '—' or 'No data' when the value is null or undefined. Include a loading state indicator. Style consistently with existing card components like BatteryIndicator.tsx using Tailwind classes and the app's design tokens."
+        },
+        {
+          "path": "frontend/src/pages/Dashboard.tsx",
+          "operation": "modify",
+          "description": "Import and render the new ActuationLatencyCard component on the Dashboard page. Position it alongside existing metric cards (e.g., near BatteryIndicator or DeviceSelector) in a logical location within the dashboard's grid layout. Ensure the card is visible to authenticated users who have connected a device."
+        }
+      ]
+    }
+  ]
 }

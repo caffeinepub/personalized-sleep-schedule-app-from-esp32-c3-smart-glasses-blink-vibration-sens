@@ -18,6 +18,8 @@ import {
   EYES_OPEN_MAX,
 } from '../utils/bleNus';
 import { useLocalBlinkHistory } from '../hooks/useLocalBlinkHistory';
+import { useActor } from '../hooks/useActor';
+import { useQueryClient } from '@tanstack/react-query';
 
 type ConnectionState = 'disconnected' | 'connecting' | 'connected';
 
@@ -32,6 +34,8 @@ interface BluetoothContextValue {
   latestReading: string | null;
   batteryPercentage: number | undefined;
   isCharging: boolean;
+  /** Sends a vibration trigger BLE command and records actuation latency on the backend. */
+  triggerVibration: () => Promise<void>;
 }
 
 interface ConnectOptions {
@@ -84,6 +88,15 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
 
   // Local blink history for persisting eye state events
   const { addDataPoint } = useLocalBlinkHistory();
+
+  // Backend actor for latency recording
+  const { actor } = useActor();
+  const actorRef = useRef(actor);
+  useEffect(() => {
+    actorRef.current = actor;
+  }, [actor]);
+
+  const queryClient = useQueryClient();
 
   const setOnBlinkRateChange = useCallback((callback: (blinkRate: number) => void) => {
     onBlinkRateChangeRef.current = callback;
@@ -156,7 +169,10 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
         // De-duplication: only count if we weren't already in closed state
         if (previousEyeState !== 'closed') {
           blinkTimestampsRef.current.push({ timestamp: now });
-          console.log(`Blink detected! Token: "close" (${previousEyeState}→closed transition), Total blinks in window: ${blinkTimestampsRef.current.length}`);
+          // Record eye-closed timestamp on the backend (fire-and-forget)
+          if (actorRef.current) {
+            actorRef.current.recordEyeClosedTimestamp().catch(() => {});
+          }
         }
       } else if (eyeStateToken === 'open') {
         newEyeState = 'open';
@@ -197,7 +213,10 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
         // Count a blink on transition from open to closed (numeric path)
         if (previousEyeState === 'open' && newEyeState === 'closed') {
           blinkTimestampsRef.current.push({ timestamp: now });
-          console.log(`Blink detected! Light level: ${rawSensorValue} (open→closed transition, threshold <${EYES_CLOSED_MAX} or range ${BLINK_MIN}–${BLINK_MAX}), Total blinks in window: ${blinkTimestampsRef.current.length}`);
+          // Record eye-closed timestamp on the backend (fire-and-forget)
+          if (actorRef.current) {
+            actorRef.current.recordEyeClosedTimestamp().catch(() => {});
+          }
         }
       }
     }
@@ -284,7 +303,6 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
         const isActuallyConnected = serverRef.current.connected;
         
         if (!isActuallyConnected && connectionState === 'connected') {
-          console.log('GATT connection lost, updating UI state');
           setConnectionState('disconnected');
           notificationsEnabledRef.current = false;
         }
@@ -302,11 +320,9 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
 
     const now = Date.now();
     if (isConnectingRef.current) {
-      console.log('Connection already in progress, ignoring duplicate request');
       return;
     }
     if (now - lastAttemptStartRef.current < MIN_CONNECTION_INTERVAL_MS) {
-      console.log('Connection attempt too soon after last attempt, ignoring');
       return;
     }
 
@@ -338,7 +354,6 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
       const device = await navigator.bluetooth!.requestDevice(requestOptions);
 
       if (myToken !== attemptTokenRef.current) {
-        console.log('Stale connection attempt, aborting');
         isConnectingRef.current = false;
         return;
       }
@@ -347,7 +362,6 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
 
       const onDisconnect = () => {
         if (myToken !== attemptTokenRef.current) return;
-        console.log('BLE device disconnected');
         setConnectionState('disconnected');
         notificationsEnabledRef.current = false;
       };
@@ -402,11 +416,9 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
         if (cccdDescriptor) {
           const enableNotifications = new Uint8Array([0x01, 0x00]);
           await cccdDescriptor.writeValue(enableNotifications);
-          console.log('CCCD enabled for notifications');
         }
       } catch (cccdErr) {
         // CCCD write is optional; startNotifications() may handle it automatically
-        console.log('CCCD descriptor not accessible (may be handled automatically):', cccdErr);
       }
 
       if (myToken !== attemptTokenRef.current) {
@@ -416,7 +428,6 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
       }
 
       setConnectionState('connected');
-      console.log('BLE connected successfully');
     } catch (err: any) {
       if (myToken !== attemptTokenRef.current) {
         isConnectingRef.current = false;
@@ -440,6 +451,40 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     }
   }, [isSupported, cleanupConnection, handleCharacteristicValueChanged]);
 
+  /**
+   * Sends a 'trigger-vibration' BLE write command and records actuation latency
+   * on the backend by calling triggerVibrationAndCalculateLatency().
+   */
+  const triggerVibration = useCallback(async () => {
+    // Write the vibration command over BLE if connected
+    if (characteristicRef.current && serverRef.current?.connected) {
+      try {
+        const encoder = new TextEncoder();
+        const command = encoder.encode('trigger-vibration');
+        // Use writeValueWithoutResponse if available, otherwise writeValue
+        const char = characteristicRef.current as any;
+        if (char.writeValueWithoutResponse) {
+          await char.writeValueWithoutResponse(command);
+        } else {
+          await char.writeValue(command);
+        }
+      } catch (err) {
+        console.warn('BLE vibration write failed:', err);
+      }
+    }
+
+    // Calculate and store actuation latency on the backend
+    if (actorRef.current) {
+      try {
+        await actorRef.current.triggerVibrationAndCalculateLatency();
+        // Invalidate the latency query so the dashboard refreshes immediately
+        queryClient.invalidateQueries({ queryKey: ['actuationLatency'] });
+      } catch (err) {
+        console.warn('Failed to record actuation latency:', err);
+      }
+    }
+  }, [queryClient]);
+
   const value: BluetoothContextValue = {
     connectionState,
     error,
@@ -450,6 +495,7 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     latestReading,
     batteryPercentage,
     isCharging,
+    triggerVibration,
   };
 
   return (

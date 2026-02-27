@@ -1,4 +1,45 @@
 {
   "kind": "feature_evidence_report",
-  "features": []
+  "features": [
+    {
+      "featureId": "feature-in-the-frontend-bluetoothcontext-or-the-ble-data-parsing-layer-detect-when-an-eye-closed-signal-is-received-from-the-ble-device-and-call-the-backend-recordeyeclosedtimestamp-endpoint-similarly-when-a-trigger-vibration-command-is-dispatched-to-the-ble-device-call-the-backend-triggervibrationandgetlatency-endpoint-and-store-the-returned-latency-value",
+      "featureTitle": "In the frontend BluetoothContext or the BLE data parsing layer, detect when an 'eye-closed' signal is received from the BLE device and call the backend recordEyeClosedTimestamp() endpoint. Similarly, when a 'trigger-vibration' command is dispatched to the BLE device, call the backend triggerVibrationAndGetLatency() endpoint and store the returned latency value.",
+      "files": [
+        "frontend/src/contexts/BluetoothContext.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-4"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-add-an-actuation-latency-ms-metric-card-to-the-dashboard-page-dashboard-tsx-it-should-poll-the-backend-getactuationlatency-query-on-a-short-interval-e-g-every-2-seconds-via-react-query-and-display-the-most-recent-latency-value-in-milliseconds-show-a-placeholder-e-g-when-no-latency-has-been-recorded-yet",
+      "featureTitle": "Add an 'Actuation Latency (ms)' metric card to the Dashboard page (Dashboard.tsx). It should poll the backend getActuationLatency() query on a short interval (e.g., every 2 seconds via React Query) and display the most recent latency value in milliseconds. Show a placeholder (e.g., '—') when no latency has been recorded yet.",
+      "files": [
+        "frontend/src/components/device/ActuationLatencyCard.tsx",
+        "frontend/src/hooks/useQueries.ts",
+        "frontend/src/pages/Dashboard.tsx"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-5"
+      ],
+      "confidence": "high"
+    }
+  ]
 }

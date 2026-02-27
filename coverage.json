@@ -1,47 +1,80 @@
 {
   "kind": "coverage_report",
   "version": "1.0",
-  "generatedAt": "2026-02-27T02:09:19.115Z",
+  "generatedAt": "2026-02-27T02:47:35.655Z",
   "sources": {
     "buildRequest": true,
     "implementationPlan": true
   },
   "requirements": {
-    "total": 3,
-    "implemented": 0,
+    "total": 5,
+    "implemented": 2,
     "items": [
       {
         "id": "REQ-1",
-        "summary": "Update the rolling average calculation in the Motoko backend to use Float arithmetic instead of integer arithmetic, so the computed average retains decimal precision.",
+        "summary": "Add a backend endpoint to record the timestamp (in milliseconds) when an 'eye-closed' signal is received. Store this as a high-resolution timestamp using the system time in nanoseconds converted to milliseconds (Time.now() / 1_000_000). Only the most recent eye-closed timestamp needs to be retained (overwrite on each new signal).",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
         "id": "REQ-2",
-        "summary": "Implement a strict pruning function in the Motoko backend that removes all data points whose timestamps are older than 300,000 milliseconds (5 minutes) relative to the current time, and invoke this function before every rolling average calculation.",
+        "summary": "Add a backend endpoint that, when the 'trigger-vibration' command is issued, captures the current system timestamp in milliseconds, subtracts the stored eye-closed timestamp, and returns the difference as the actuation latency in milliseconds. If no eye-closed timestamp has been recorded, return a sentinel value (e.g., -1 or a variant indicating 'no data').",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
       },
       {
         "id": "REQ-3",
-        "summary": "Ensure the running sum used in the rolling average is fully discarded and recalculated from scratch using the current pruned buffer on every new BLE event, eliminating any accumulated drift from incremental sum updates.",
+        "summary": "Add a backend query function to retrieve the most recently computed actuation latency in milliseconds, so the frontend dashboard can poll it via React Query without re-triggering the vibration command.",
         "status": "unknown",
         "plannedFiles": [],
         "matchedFiles": []
+      },
+      {
+        "id": "REQ-4",
+        "summary": "In the frontend BluetoothContext or the BLE data parsing layer, detect when an 'eye-closed' signal is received from the BLE device and call the backend recordEyeClosedTimestamp() endpoint. Similarly, when a 'trigger-vibration' command is dispatched to the BLE device, call the backend triggerVibrationAndGetLatency() endpoint and store the returned latency value.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/contexts/BluetoothContext.tsx",
+          "frontend/src/hooks/useEyeRBluetooth.ts"
+        ],
+        "matchedFiles": [
+          "frontend/src/contexts/BluetoothContext.tsx"
+        ]
+      },
+      {
+        "id": "REQ-5",
+        "summary": "Add an 'Actuation Latency (ms)' metric card to the Dashboard page (Dashboard.tsx). It should poll the backend getActuationLatency() query on a short interval (e.g., every 2 seconds via React Query) and display the most recent latency value in milliseconds. Show a placeholder (e.g., '—') when no latency has been recorded yet.",
+        "status": "implemented",
+        "plannedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/components/device/ActuationLatencyCard.tsx",
+          "frontend/src/pages/Dashboard.tsx"
+        ],
+        "matchedFiles": [
+          "frontend/src/hooks/useQueries.ts",
+          "frontend/src/components/device/ActuationLatencyCard.tsx",
+          "frontend/src/pages/Dashboard.tsx"
+        ]
       }
     ]
   },
   "changedFiles": [
     "backend/main.mo",
+    "backend/migration.mo",
     "build-request.json",
     "feature_evidence.json",
+    "frontend-file-summaries.txt",
     "frontend-implementation-plan.json",
     "frontend/src/backend.d.ts",
     "frontend/src/backend.ts",
+    "frontend/src/components/device/ActuationLatencyCard.tsx",
+    "frontend/src/contexts/BluetoothContext.tsx",
     "frontend/src/declarations/backend.did.d.ts",
     "frontend/src/declarations/backend.did.js",
+    "frontend/src/hooks/useQueries.ts",
+    "frontend/src/pages/Dashboard.tsx",
     "project_state.json",
     "scratch/component-selection.json",
     "spec.md",

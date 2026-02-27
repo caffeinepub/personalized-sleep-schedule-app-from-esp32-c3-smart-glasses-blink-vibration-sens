@@ -1,35 +1,56 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "BLE-connected app with Motoko backend that calculates a 5-minute rolling average of sensor data. Backend logic being updated for Float precision, strict time-based pruning, and drift-free sum recalculation.",
+  "summary": "Project involves a BLE-connected wearable/dashboard system that tracks eye-closed signals and vibration actuation, with latency and rolling average metrics displayed on a dashboard.",
   "architectural_notes": [
-    "Motoko backend uses Float for rolling average calculations to ensure decimal precision",
-    "Rolling average uses strict pruning: data points older than 300,000ms (5 mins) are removed before every calculation",
-    "Sum is reset and recalculated from the current buffer on every new BLE event to prevent drift"
+    "BLE signals ('eye-closed', 'trigger-vibration') are core events driving backend timer and dashboard metrics"
   ],
   "known_issues": [],
-  "isFixRequest": true,
-  "existing_features": [],
+  "isFixRequest": false,
+  "existing_features": [
+    {
+      "id": "feature-in-the-frontend-bluetoothcontext-or-the-ble-data-parsing-layer-detect-when-an-eye-closed-signal-is-received-from-the-ble-device-and-call-the-backend-recordeyeclosedtimestamp-endpoint-similarly-when-a-trigger-vibration-command-is-dispatched-to-the-ble-device-call-the-backend-triggervibrationandgetlatency-endpoint-and-store-the-returned-latency-value",
+      "title": "In the frontend BluetoothContext or the BLE data parsing layer, detect when an 'eye-closed' signal is received from the BLE device and call the backend recordEyeClosedTimestamp() endpoint. Similarly, when a 'trigger-vibration' command is dispatched to the BLE device, call the backend triggerVibrationAndGetLatency() endpoint and store the returned latency value.",
+      "reqIds": [
+        "REQ-4"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-add-an-actuation-latency-ms-metric-card-to-the-dashboard-page-dashboard-tsx-it-should-poll-the-backend-getactuationlatency-query-on-a-short-interval-e-g-every-2-seconds-via-react-query-and-display-the-most-recent-latency-value-in-milliseconds-show-a-placeholder-e-g-when-no-latency-has-been-recorded-yet",
+      "title": "Add an 'Actuation Latency (ms)' metric card to the Dashboard page (Dashboard.tsx). It should poll the backend getActuationLatency() query on a short interval (e.g., every 2 seconds via React Query) and display the most recent latency value in milliseconds. Show a placeholder (e.g., '—') when no latency has been recorded yet.",
+      "reqIds": [
+        "REQ-5"
+      ],
+      "version": 1
+    }
+  ],
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Update the rolling average calculation in the Motoko backend to use Float arithmetic instead of integer arithmetic, so the computed average retains decimal precision.",
+      "summary": "Add high-resolution backend timer: record timestamp (ms) on 'eye-closed' BLE signal, calculate difference when 'trigger-vibration' is issued, display as 'Actuation Latency (ms)' on dashboard",
+      "reqIds": [],
+      "status": "pending"
+    },
+    {
+      "id": "AR-2",
+      "summary": "Add a backend endpoint to record the timestamp (in milliseconds) when an 'eye-closed' signal is received. Store this as a high-resolution timestamp using the system time in nanoseconds converted to milliseconds (Time.now() / 1_000_000). Only the most recent eye-closed timestamp needs to be retained (overwrite on each new signal).",
       "reqIds": [
         "REQ-1"
       ],
       "status": "pending"
     },
     {
-      "id": "AR-2",
-      "summary": "Implement a strict pruning function in the Motoko backend that removes all data points whose timestamps are older than 300,000 milliseconds (5 minutes) relative to the current time, and invoke this function before every rolling average calculation.",
+      "id": "AR-3",
+      "summary": "Add a backend endpoint that, when the 'trigger-vibration' command is issued, captures the current system timestamp in milliseconds, subtracts the stored eye-closed timestamp, and returns the difference as the actuation latency in milliseconds. If no eye-closed timestamp has been recorded, return a sentinel value (e.g., -1 or a variant indicating 'no data').",
       "reqIds": [
         "REQ-2"
       ],
       "status": "pending"
     },
     {
-      "id": "AR-3",
-      "summary": "Ensure the running sum used in the rolling average is fully discarded and recalculated from scratch using the current pruned buffer on every new BLE event, eliminating any accumulated drift from incremental sum updates.",
+      "id": "AR-4",
+      "summary": "Add a backend query function to retrieve the most recently computed actuation latency in milliseconds, so the frontend dashboard can poll it via React Query without re-triggering the vibration command.",
       "reqIds": [
         "REQ-3"
       ],
@@ -37,7 +58,7 @@
     }
   ],
   "gameProjectType": "none",
-  "projectName": "Fix 5-minute rolling average: Float precision, strict pruning, and drift-free sum",
+  "projectName": "EyeR Sleep Monitor",
   "clarification_mode": "instant",
   "clarification_rounds": 0
 }

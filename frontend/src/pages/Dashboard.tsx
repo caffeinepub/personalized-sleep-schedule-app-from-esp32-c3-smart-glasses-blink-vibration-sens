@@ -5,6 +5,7 @@ import { useLocalBlinkHistory } from '../hooks/useLocalBlinkHistory';
 import { useRollingBlinkRateAverage5Min } from '../hooks/useRollingBlinkRateAverage5Min';
 import DeviceSelector from '../components/device/DeviceSelector';
 import BatteryIndicator from '../components/device/BatteryIndicator';
+import ActuationLatencyCard from '../components/device/ActuationLatencyCard';
 import TimeRangePicker, { TimeRange } from '../components/time/TimeRangePicker';
 import BlinkRateChart from '../components/charts/BlinkRateChart';
 import SleepScheduleCard from '../components/recommendation/SleepScheduleCard';
@@ -142,8 +143,8 @@ export default function Dashboard() {
           <DeviceSelector deviceId={deviceId} onDeviceIdChange={setDeviceId} isValid={isValid} />
         )}
 
-        {/* Live Metrics */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {/* Live Metrics — 5-column grid on large screens */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-5">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Current Blink Rate</CardTitle>
@@ -197,6 +198,9 @@ export default function Dashboard() {
             batteryPercentage={batteryPercentage}
             isCharging={isCharging}
           />
+
+          {/* Actuation Latency */}
+          <ActuationLatencyCard />
         </div>
 
         {/* Debug Info */}

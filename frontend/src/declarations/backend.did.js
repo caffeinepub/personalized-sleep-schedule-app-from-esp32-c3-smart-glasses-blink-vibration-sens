@@ -73,6 +73,7 @@ export const idlService = IDL.Service({
     ),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getMostRecentActuationLatency' : IDL.Func([], [IDL.Opt(IDL.Int)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
@@ -91,8 +92,10 @@ export const idlService = IDL.Service({
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'recordBlinkRate' : IDL.Func([DeviceId, BlinkRate], [], []),
   'recordBlinkSummary' : IDL.Func([DeviceId, BlinkSummary], [], []),
+  'recordEyeClosedTimestamp' : IDL.Func([], [], []),
   'recordVibrationEvent' : IDL.Func([DeviceId], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'triggerVibrationAndCalculateLatency' : IDL.Func([], [IDL.Int], []),
 });
 
 export const idlInitArgs = [];
@@ -167,6 +170,11 @@ export const idlFactory = ({ IDL }) => {
       ),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getMostRecentActuationLatency' : IDL.Func(
+        [],
+        [IDL.Opt(IDL.Int)],
+        ['query'],
+      ),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
@@ -185,8 +193,10 @@ export const idlFactory = ({ IDL }) => {
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'recordBlinkRate' : IDL.Func([DeviceId, BlinkRate], [], []),
     'recordBlinkSummary' : IDL.Func([DeviceId, BlinkSummary], [], []),
+    'recordEyeClosedTimestamp' : IDL.Func([], [], []),
     'recordVibrationEvent' : IDL.Func([DeviceId], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'triggerVibrationAndCalculateLatency' : IDL.Func([], [IDL.Int], []),
   });
 };
 

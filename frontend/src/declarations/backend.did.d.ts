@@ -65,6 +65,7 @@ export interface _SERVICE {
   >,
   'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
+  'getMostRecentActuationLatency' : ActorMethod<[], [] | [bigint]>,
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'getVibrationEvents' : ActorMethod<[DeviceId], Array<VibrationEvent>>,
   'getVibrationEventsInTimeRange' : ActorMethod<
@@ -74,8 +75,10 @@ export interface _SERVICE {
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'recordBlinkRate' : ActorMethod<[DeviceId, BlinkRate], undefined>,
   'recordBlinkSummary' : ActorMethod<[DeviceId, BlinkSummary], undefined>,
+  'recordEyeClosedTimestamp' : ActorMethod<[], undefined>,
   'recordVibrationEvent' : ActorMethod<[DeviceId], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
+  'triggerVibrationAndCalculateLatency' : ActorMethod<[], bigint>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

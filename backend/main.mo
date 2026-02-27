@@ -9,7 +9,9 @@ import Iter "mo:core/Iter";
 import Runtime "mo:core/Runtime";
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
+import Migration "migration";
 
+(with migration = Migration.run)
 actor {
   type DeviceId = Text;
   type Timestamp = Int;
@@ -17,6 +19,9 @@ actor {
   type VibrationEventId = Nat;
   type DataPoint = (Timestamp, BlinkRate);
   type RollingAverageBuffer = List.List<DataPoint>;
+
+  var lastEyeClosedTimestamp : ?Int = null;
+  var mostRecentActuationLatency : ?Int = null;
 
   public type SmartGlassesEvent = {
     deviceId : DeviceId;
@@ -61,18 +66,16 @@ actor {
 
   module SmartGlassesEvent {
     public func compare(a : SmartGlassesEvent, b : SmartGlassesEvent) : Order.Order {
-      switch (
-        Principal.compare(
-          switch (a.userPrincipal) {
-            case (?principal) { principal };
-            case (null) { Principal.fromText("") };
-          },
-          switch (b.userPrincipal) {
-            case (?principal) { principal };
-            case (null) { Principal.fromText("") };
-          },
-        )
-      ) {
+      switch (Principal.compare(
+        switch (a.userPrincipal) {
+          case (?principal) { principal };
+          case (null) { Principal.fromText("") };
+        },
+        switch (b.userPrincipal) {
+          case (?principal) { principal };
+          case (null) { Principal.fromText("") };
+        },
+      )) {
         case (#equal) {
           switch (Text.compare(a.deviceId, b.deviceId)) {
             case (#equal) { Int.compare(a.timestamp, b.timestamp) };
@@ -346,7 +349,6 @@ actor {
     };
   };
 
-  // Prune expired entries (older than 5 minutes)
   func pruneBuffer(buffer : RollingAverageBuffer, currentTime : Timestamp) : RollingAverageBuffer {
     buffer.filter(
       func(point) {
@@ -356,9 +358,7 @@ actor {
     );
   };
 
-  // Add new data point and calculate rolling average in backend
   public shared ({ caller }) func addDataPoint(deviceId : DeviceId, value : BlinkRate) : async ?Float {
-    // Admin guard is currently required for this endpoint; can be updated based on use case
     if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
       Runtime.trap("Unauthorized: Only admins can add data points");
     };
@@ -460,5 +460,38 @@ actor {
       };
       case (null) {};
     };
+  };
+
+  // Store the timestamp when eyes are closed.
+  // No auth check: this signal comes from a device (like ESP32) and should be
+  // accessible to any caller, including guests, consistent with recordBlinkRate
+  // and recordVibrationEvent which also accept device signals without auth checks.
+  public shared ({ caller }) func recordEyeClosedTimestamp() : async () {
+    lastEyeClosedTimestamp := ?(Time.now() / 1_000_000);
+  };
+
+  // Calculate and store the actuation latency.
+  // Requires #user permission: this is a command issued from the user dashboard,
+  // not a raw device signal.
+  public shared ({ caller }) func triggerVibrationAndCalculateLatency() : async Int {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can trigger vibration commands");
+    };
+    let now = Time.now() / 1_000_000;
+    let latency = switch (lastEyeClosedTimestamp) {
+      case (null) { -1 };
+      case (?eyeClosedTime) { now - eyeClosedTime };
+    };
+    mostRecentActuationLatency := ?latency;
+    latency;
+  };
+
+  // Retrieve the most recent actuation latency for the dashboard.
+  // Requires #user permission: this is dashboard data intended for authenticated users.
+  public query ({ caller }) func getMostRecentActuationLatency() : async ?Int {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can retrieve actuation latency");
+    };
+    mostRecentActuationLatency;
   };
 };

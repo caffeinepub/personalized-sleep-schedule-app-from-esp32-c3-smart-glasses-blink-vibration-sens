@@ -1,75 +1,112 @@
 {
   "kind": "build_request",
-  "title": "Fix 5-minute rolling average: Float precision, strict pruning, and drift-free sum",
-  "priority": "high",
+  "title": "Add Actuation Latency Timer (eye-closed → trigger-vibration)",
+  "projectName": "EyeR Sleep Monitor",
+  "priority": "normal",
   "requirements": [
     {
       "id": "REQ-1",
-      "text": "Update the rolling average calculation in the Motoko backend to use Float arithmetic instead of integer arithmetic, so the computed average retains decimal precision.",
+      "text": "Add a backend endpoint to record the timestamp (in milliseconds) when an 'eye-closed' signal is received. Store this as a high-resolution timestamp using the system time in nanoseconds converted to milliseconds (Time.now() / 1_000_000). Only the most recent eye-closed timestamp needs to be retained (overwrite on each new signal).",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-latest"
+          "msg-1"
         ],
         "quotes": [
-          "Use Float for the average calculation to ensure decimal precision."
+          "Every time an 'eye-closed' signal is received via BLE, record the system timestamp in milliseconds."
         ]
       },
       "acceptanceCriteria": [
-        "The average value stored and returned is a Float (e.g., 14.6 rather than 14).",
-        "Division in the average calculation uses Float division, not integer division.",
-        "Existing Motoko type definitions updated wherever the rolling average is typed as Int or Nat."
+        "A callable backend function (e.g., recordEyeClosedTimestamp()) stores Time.now() / 1_000_000 as an Int or Nat64.",
+        "Each new call overwrites the previously stored eye-closed timestamp.",
+        "The stored timestamp persists in stable storage across canister upgrades."
       ]
     },
     {
       "id": "REQ-2",
-      "text": "Implement a strict pruning function in the Motoko backend that removes all data points whose timestamps are older than 300,000 milliseconds (5 minutes) relative to the current time, and invoke this function before every rolling average calculation.",
+      "text": "Add a backend endpoint that, when the 'trigger-vibration' command is issued, captures the current system timestamp in milliseconds, subtracts the stored eye-closed timestamp, and returns the difference as the actuation latency in milliseconds. If no eye-closed timestamp has been recorded, return a sentinel value (e.g., -1 or a variant indicating 'no data').",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-latest"
+          "msg-1"
         ],
         "quotes": [
-          "Implement a strict pruning function that removes any data points older than 300,000 milliseconds (5 mins) before every calculation."
+          "As soon as the 'trigger-vibration' command is issued, calculate the difference"
         ]
       },
       "acceptanceCriteria": [
-        "A dedicated pruning function (or inline logic) filters the buffer to retain only entries with timestamp >= (now - 300_000) milliseconds.",
-        "Pruning runs unconditionally before the average is computed on every new BLE data event.",
-        "Data points exactly at the 300,000 ms boundary are retained; points beyond it are discarded.",
-        "The pruned buffer is used as the sole input for the subsequent average calculation."
+        "A callable backend function (e.g., triggerVibrationAndGetLatency()) computes latencyMs = (Time.now() / 1_000_000) - eyeClosedTimestampMs.",
+        "The function returns the latency value as an integer (or a variant wrapping it).",
+        "Returns -1 or an appropriate error variant if no prior eye-closed timestamp exists.",
+        "The actuation latency value is also stored so it can be queried independently by the frontend."
       ]
     },
     {
       "id": "REQ-3",
-      "text": "Ensure the running sum used in the rolling average is fully discarded and recalculated from scratch using the current pruned buffer on every new BLE event, eliminating any accumulated drift from incremental sum updates.",
+      "text": "Add a backend query function to retrieve the most recently computed actuation latency in milliseconds, so the frontend dashboard can poll it via React Query without re-triggering the vibration command.",
       "target": "backend",
       "source": {
         "messageIds": [
-          "msg-latest"
+          "msg-1"
         ],
         "quotes": [
-          "Ensure the 'sum' is reset and recalculated from the current buffer on every new BLE event to prevent drift."
+          "display it on the dashboard as 'Actuation Latency (ms)'"
         ]
       },
       "acceptanceCriteria": [
-        "No persistent or incremental 'sum' variable is carried between BLE events.",
-        "On each new BLE event, after pruning, the sum is computed by iterating over all remaining buffer entries.",
-        "The average equals the freshly computed sum divided by the current buffer length as a Float.",
-        "If the buffer is empty after pruning, the average returns 0.0 or an appropriate null/option value."
+        "A query function (e.g., getActuationLatency()) returns the last computed latency value as an optional integer.",
+        "Returns null or a sentinel if no latency has been computed yet."
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "text": "In the frontend BluetoothContext or the BLE data parsing layer, detect when an 'eye-closed' signal is received from the BLE device and call the backend recordEyeClosedTimestamp() endpoint. Similarly, when a 'trigger-vibration' command is dispatched to the BLE device, call the backend triggerVibrationAndGetLatency() endpoint and store the returned latency value.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "Every time an 'eye-closed' signal is received via BLE, record the system timestamp in milliseconds.",
+          "As soon as the 'trigger-vibration' command is issued, calculate the difference"
+        ]
+      },
+      "acceptanceCriteria": [
+        "The BLE context (BluetoothContext.tsx or useEyeRBluetooth.ts) calls recordEyeClosedTimestamp() on the backend actor when eye state transitions to 'closed'.",
+        "When a trigger-vibration BLE write is initiated, the frontend calls triggerVibrationAndGetLatency() and captures the returned latency.",
+        "The latency value is made available via React context or a shared state so the Dashboard can consume it."
+      ]
+    },
+    {
+      "id": "REQ-5",
+      "text": "Add an 'Actuation Latency (ms)' metric card to the Dashboard page (Dashboard.tsx). It should poll the backend getActuationLatency() query on a short interval (e.g., every 2 seconds via React Query) and display the most recent latency value in milliseconds. Show a placeholder (e.g., '—') when no latency has been recorded yet.",
+      "target": "frontend",
+      "source": {
+        "messageIds": [
+          "msg-1"
+        ],
+        "quotes": [
+          "display it on the dashboard as 'Actuation Latency (ms)'"
+        ]
+      },
+      "acceptanceCriteria": [
+        "A clearly labeled card or stat widget titled 'Actuation Latency (ms)' is visible on the Dashboard.",
+        "The displayed value refreshes automatically via React Query polling (≤ 2-second interval).",
+        "When no latency data is available, the card displays '—' or 'No data'.",
+        "The value is displayed as a whole number in milliseconds (e.g., '142 ms')."
       ]
     }
   ],
   "constraints": [
-    "All changes must remain within the single Motoko actor in backend/main.mo.",
-    "Do not modify any frontend immutable paths.",
-    "Preserve all existing public API method signatures unless a Float return type change is strictly required by the fix."
+    "All backend logic must remain in the single main actor file (backend/main.mo).",
+    "Timestamp precision must use Time.now() / 1_000_000 to convert nanoseconds to milliseconds.",
+    "Do not modify any files listed in frontend.immutablePaths."
   ],
   "nonGoals": [
-    "Changing how BLE data is collected or transmitted on the frontend.",
-    "Modifying the frontend rolling average hook (useRollingBlinkRateAverage5Min.ts).",
-    "Adding new backend endpoints or data types unrelated to the rolling average fix.",
-    "UI changes of any kind."
+    "Sub-millisecond or hardware-level timing precision beyond what Time.now() provides.",
+    "Storing a full history of actuation latency events (only the most recent value is required).",
+    "Sending vibration commands directly from the backend — BLE writes remain frontend-initiated.",
+    "Modifying the existing rolling average or blink rate logic."
   ],
   "imageRequirements": {
     "required": [],

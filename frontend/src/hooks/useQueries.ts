@@ -77,3 +77,22 @@ export function useSaveCallerUserProfile() {
     },
   });
 }
+
+/**
+ * Polls the backend for the most recent actuation latency value every 2 seconds.
+ * Returns null when no latency has been computed yet.
+ */
+export function useActuationLatency() {
+  const { actor, isFetching } = useActor();
+
+  return useQuery<bigint | null>({
+    queryKey: ['actuationLatency'],
+    queryFn: async () => {
+      if (!actor) return null;
+      return actor.getMostRecentActuationLatency();
+    },
+    enabled: !!actor && !isFetching,
+    refetchInterval: 2000,
+    retry: false,
+  });
+}
