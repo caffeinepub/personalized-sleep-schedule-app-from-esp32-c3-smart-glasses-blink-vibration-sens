@@ -2,8 +2,27 @@
   "kind": "feature_evidence_report",
   "features": [
     {
-      "featureId": "feature-in-the-frontend-bluetoothcontext-or-the-ble-data-parsing-layer-detect-when-an-eye-closed-signal-is-received-from-the-ble-device-and-call-the-backend-recordeyeclosedtimestamp-endpoint-similarly-when-a-trigger-vibration-command-is-dispatched-to-the-ble-device-call-the-backend-triggervibrationandgetlatency-endpoint-and-store-the-returned-latency-value",
-      "featureTitle": "In the frontend BluetoothContext or the BLE data parsing layer, detect when an 'eye-closed' signal is received from the BLE device and call the backend recordEyeClosedTimestamp() endpoint. Similarly, when a 'trigger-vibration' command is dispatched to the BLE device, call the backend triggerVibrationAndGetLatency() endpoint and store the returned latency value.",
+      "featureId": "feature-in-frontend-src-utils-blenus-ts-ensure-the-esp32-pipe-delimited-ble-string-parser-splits-the-incoming-string-by-then-extracts-the-numeric-value-after-bat-lat-and-val-prefixes-respectively-returning-them-as-structured-fields-e-g-battery-number-latency-number-val-number-the-parser-must-handle-the-exact-format-bat-85-lat-2050-val-450",
+      "featureTitle": "In `frontend/src/utils/bleNus.ts`, ensure the ESP32 pipe-delimited BLE string parser splits the incoming string by `|`, then extracts the numeric value after `BAT:`, `LAT:`, and `VAL:` prefixes respectively, returning them as structured fields (e.g., `{ battery: number, latency: number, val: number }`). The parser must handle the exact format `BAT:85|LAT:2050|VAL:450`.",
+      "files": [
+        "frontend/src/utils/bleNus.ts"
+      ],
+      "components": [
+        "authorization@4.0.0",
+        "core-infrastructure@1.0.2",
+        "shadcn-ui@1.0.0",
+        "build-template-react@1.0.0",
+        "initial-app@1.0.0",
+        "github-export-icp-cli@1.0.0"
+      ],
+      "testIds": [
+        "REQ-1"
+      ],
+      "confidence": "high"
+    },
+    {
+      "featureId": "feature-in-frontend-src-contexts-bluetoothcontext-tsx-update-the-ble-notification-handler-so-that-when-a-notification-arrives-it-invokes-the-pipe-delimited-parser-from-blenus-ts-and-stores-the-resulting-battery-latency-and-val-fields-in-the-context-state-replacing-any-prior-ad-hoc-parsing-of-these-values",
+      "featureTitle": "In `frontend/src/contexts/BluetoothContext.tsx`, update the BLE notification handler so that when a notification arrives it invokes the pipe-delimited parser from `bleNus.ts` and stores the resulting `battery`, `latency`, and `val` fields in the context state, replacing any prior ad-hoc parsing of these values.",
       "files": [
         "frontend/src/contexts/BluetoothContext.tsx"
       ],
@@ -16,17 +35,15 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-4"
+        "REQ-2"
       ],
       "confidence": "high"
     },
     {
-      "featureId": "feature-add-an-actuation-latency-ms-metric-card-to-the-dashboard-page-dashboard-tsx-it-should-poll-the-backend-getactuationlatency-query-on-a-short-interval-e-g-every-2-seconds-via-react-query-and-display-the-most-recent-latency-value-in-milliseconds-show-a-placeholder-e-g-when-no-latency-has-been-recorded-yet",
-      "featureTitle": "Add an 'Actuation Latency (ms)' metric card to the Dashboard page (Dashboard.tsx). It should poll the backend getActuationLatency() query on a short interval (e.g., every 2 seconds via React Query) and display the most recent latency value in milliseconds. Show a placeholder (e.g., '—') when no latency has been recorded yet.",
+      "featureId": "feature-update-frontend-src-components-device-batteryindicator-tsx-to-consume-the-battery-value-0-100-from-bluetoothcontext-and-display-it-in-the-battery-card-the-card-must-show-the-numeric-percentage-and-update-live-as-new-ble-notifications-arrive",
+      "featureTitle": "Update `frontend/src/components/device/BatteryIndicator.tsx` to consume the `battery` value (0–100) from `BluetoothContext` and display it in the Battery card. The card must show the numeric percentage and update live as new BLE notifications arrive.",
       "files": [
-        "frontend/src/components/device/ActuationLatencyCard.tsx",
-        "frontend/src/hooks/useQueries.ts",
-        "frontend/src/pages/Dashboard.tsx"
+        "frontend/src/components/device/BatteryIndicator.tsx"
       ],
       "components": [
         "authorization@4.0.0",
@@ -37,7 +54,7 @@
         "github-export-icp-cli@1.0.0"
       ],
       "testIds": [
-        "REQ-5"
+        "REQ-3"
       ],
       "confidence": "high"
     }

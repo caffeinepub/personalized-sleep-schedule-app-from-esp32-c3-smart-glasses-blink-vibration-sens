@@ -1,17 +1,14 @@
 import { Timer } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useActuationLatency } from '../../hooks/useQueries';
+import { useBluetooth } from '../../contexts/BluetoothContext';
 
 export default function ActuationLatencyCard() {
-  const { data: latency, isLoading } = useActuationLatency();
+  const { actuationLatency } = useBluetooth();
 
   const displayValue = (() => {
-    if (isLoading) return null;
-    if (latency === null || latency === undefined) return '—';
-    const ms = Number(latency);
-    if (ms < 0) return '—';
-    return `${ms} ms`;
+    if (actuationLatency === undefined) return '—';
+    if (actuationLatency < 0) return '—';
+    return `${actuationLatency} ms`;
   })();
 
   return (
@@ -21,13 +18,9 @@ export default function ActuationLatencyCard() {
         <Timer className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
-        {isLoading ? (
-          <Skeleton className="h-8 w-24 mt-1" />
-        ) : (
-          <div className="text-2xl font-bold">
-            {displayValue}
-          </div>
-        )}
+        <div className="text-2xl font-bold">
+          {displayValue}
+        </div>
         <p className="text-xs text-muted-foreground mt-1">
           Eye-closed → vibration (ms)
         </p>

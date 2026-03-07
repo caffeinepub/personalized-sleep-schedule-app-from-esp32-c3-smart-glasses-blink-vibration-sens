@@ -1,53 +1,84 @@
 {
   "kind": "implementation_plan",
   "version": "1.0",
-  "title": "Add Actuation Latency Timer (eye-closed → trigger-vibration)",
+  "title": "Wire parsed ESP32 BLE values into dashboard cards and chart",
   "requirements": [
     {
-      "id": "REQ-4",
-      "summary": "Wire BLE event detection to backend latency recording endpoints",
+      "id": "REQ-1",
+      "summary": "Update the BLE parser in bleNus.ts to parse the pipe-delimited format BAT:85|LAT:2050|VAL:450 into structured numeric fields",
       "acceptanceCriteria": [
-        "The BLE context (BluetoothContext.tsx or useEyeRBluetooth.ts) calls recordEyeClosedTimestamp() on the backend actor when eye state transitions to 'closed'.",
-        "When a trigger-vibration BLE write is initiated, the frontend calls triggerVibrationAndCalculateLatency() and captures the returned latency.",
-        "The latency value is made available via React context or a shared state so the Dashboard can consume it."
+        "Parsing `BAT:85|LAT:2050|VAL:450` returns `{ battery: 85, latency: 2050, val: 450 }`.",
+        "Parser splits on `|` before extracting each field.",
+        "Returns numeric types, not strings, for all three fields."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/utils/bleNus.ts",
+          "operation": "modify",
+          "description": "Add or update the ESP32 pipe-delimited parser function to split the incoming BLE notification string by `|`, then extract the numeric values after `BAT:`, `LAT:`, and `VAL:` prefixes using string operations and parseInt/parseFloat. Return a typed object with { battery: number, latency: number, val: number }. Ensure the parser handles the exact format `BAT:85|LAT:2050|VAL:450` and returns numeric types for all three fields."
+        }
+      ]
+    },
+    {
+      "id": "REQ-2",
+      "summary": "Update BluetoothContext to use the pipe-delimited parser on BLE notifications and store battery, latency, and val fields in context state",
+      "acceptanceCriteria": [
+        "On receiving a BLE notification with the format `BAT:85|LAT:2050|VAL:450`, the context updates its `battery`, `actuationLatency`, and `lightLevel` (or equivalent `val`) state fields.",
+        "No stale or hardcoded fallback values remain in the notification handler path."
       ],
       "file_operations": [
         {
           "path": "frontend/src/contexts/BluetoothContext.tsx",
           "operation": "modify",
-          "description": "Add logic to call the backend recordEyeClosedTimestamp() method whenever the eye state transitions from 'open' to 'closed'. Import useActor hook to access the backend actor. Track eye state changes and invoke the backend capability when the transition occurs. Store the returned latency from triggerVibrationAndCalculateLatency() in React state and expose it via the context value."
-        },
+          "description": "Update the BLE NUS characteristic notification handler to import and invoke the pipe-delimited parser from bleNus.ts when a notification arrives. Replace any existing ad-hoc parsing logic with the parser call. Store the returned `battery`, `latency`, and `val` fields into the context state (mapping `val` to `lightLevel` or an appropriate state field). Ensure that the state updates correctly reflect the parsed values and remove any hardcoded or stale fallback values in the notification handler path."
+        }
+      ]
+    },
+    {
+      "id": "REQ-3",
+      "summary": "Wire the battery value from BluetoothContext into BatteryIndicator card to display live percentage",
+      "acceptanceCriteria": [
+        "Battery card shows the integer parsed from `BAT:` in the BLE string.",
+        "When the BLE value is 85, the card displays `85%`.",
+        "The progress bar and color-coded icon reflect the live value."
+      ],
+      "file_operations": [
         {
-          "path": "frontend/src/hooks/useEyeRBluetooth.ts",
+          "path": "frontend/src/components/device/BatteryIndicator.tsx",
           "operation": "modify",
-          "description": "If trigger-vibration BLE writes are initiated from this hook, add a call to the backend triggerVibrationAndCalculateLatency() method immediately after dispatching the BLE write command. Use the useActor hook to access the backend actor. Capture and return the latency value so it can be consumed by the calling component or context."
+          "description": "Update the component to consume the `battery` value (0–100) from BluetoothContext using useContext or a custom hook. Display the numeric percentage in the card's UI, ensuring it updates live as new BLE notifications arrive. Verify that the progress bar and color-coded icon logic already in the component correctly reflect the live battery value."
+        }
+      ]
+    },
+    {
+      "id": "REQ-4",
+      "summary": "Wire the latency value from BluetoothContext into ActuationLatencyCard to display live milliseconds",
+      "acceptanceCriteria": [
+        "Actuation Latency card shows the integer parsed from `LAT:` in the BLE string.",
+        "When the BLE value is 2050, the card displays `2050 ms`.",
+        "The displayed value updates live as new notifications arrive."
+      ],
+      "file_operations": [
+        {
+          "path": "frontend/src/components/device/ActuationLatencyCard.tsx",
+          "operation": "modify",
+          "description": "Update the component to consume the `latency` value (milliseconds integer) from BluetoothContext using useContext or a custom hook. Display the live latency value in the card's UI with the `ms` suffix, ensuring it updates as new BLE notifications arrive."
         }
       ]
     },
     {
       "id": "REQ-5",
-      "summary": "Display Actuation Latency metric on Dashboard with polling",
+      "summary": "Feed the val field (light level) from BluetoothContext into the real-time light level chart",
       "acceptanceCriteria": [
-        "A clearly labeled card or stat widget titled 'Actuation Latency (ms)' is visible on the Dashboard.",
-        "The displayed value refreshes automatically via React Query polling (≤ 2-second interval).",
-        "When no latency data is available, the card displays '—' or 'No data'.",
-        "The value is displayed as a whole number in milliseconds (e.g., '142 ms')."
+        "The real-time light level chart plots data points sourced from the `VAL:` field of each BLE notification.",
+        "New data points are appended with the current timestamp on each notification.",
+        "The chart updates visually as new BLE values arrive."
       ],
       "file_operations": [
         {
-          "path": "frontend/src/hooks/useQueries.ts",
+          "path": "frontend/src/components/charts/BlinkRateChart.tsx",
           "operation": "modify",
-          "description": "Add a new React Query hook useActuationLatency() that queries the backend getMostRecentActuationLatency() method with a 2-second refetch interval. Return the query result including loading, error, and data states. Handle the case where the backend returns null (no latency data available yet)."
-        },
-        {
-          "path": "frontend/src/components/device/ActuationLatencyCard.tsx",
-          "operation": "create",
-          "description": "Create a new card component that displays the 'Actuation Latency (ms)' metric. Use the useActuationLatency() hook from useQueries.ts to fetch the latency data with automatic 2-second polling. Display the latency value as a formatted number with 'ms' suffix (e.g., '142 ms'). Show '—' or 'No data' when the value is null or undefined. Include a loading state indicator. Style consistently with existing card components like BatteryIndicator.tsx using Tailwind classes and the app's design tokens."
-        },
-        {
-          "path": "frontend/src/pages/Dashboard.tsx",
-          "operation": "modify",
-          "description": "Import and render the new ActuationLatencyCard component on the Dashboard page. Position it alongside existing metric cards (e.g., near BatteryIndicator or DeviceSelector) in a logical location within the dashboard's grid layout. Ensure the card is visible to authenticated users who have connected a device."
+          "description": "Update the real-time light level chart logic to consume the `val` field (light level) from BluetoothContext. On each incoming BLE notification, append a new data point (timestamp + `val` value) to the chart's rolling data series. Ensure the chart's rendering logic updates visually to reflect the new data points as they arrive."
         }
       ]
     }

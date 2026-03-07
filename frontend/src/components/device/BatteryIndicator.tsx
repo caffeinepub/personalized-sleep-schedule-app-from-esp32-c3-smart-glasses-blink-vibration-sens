@@ -2,11 +2,7 @@ import { Battery, BatteryCharging, BatteryFull, BatteryMedium, BatteryLow, Batte
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-
-interface BatteryIndicatorProps {
-  batteryPercentage: number | undefined;
-  isCharging: boolean;
-}
+import { useBluetooth } from '../../contexts/BluetoothContext';
 
 function getBatteryIcon(percentage: number | undefined, isCharging: boolean) {
   if (isCharging) {
@@ -41,7 +37,8 @@ function getBatteryTextColor(percentage: number | undefined): string {
   return 'text-destructive';
 }
 
-export default function BatteryIndicator({ batteryPercentage, isCharging }: BatteryIndicatorProps) {
+export default function BatteryIndicator() {
+  const { batteryPercentage, isCharging } = useBluetooth();
   const hasData = batteryPercentage !== undefined;
 
   return (

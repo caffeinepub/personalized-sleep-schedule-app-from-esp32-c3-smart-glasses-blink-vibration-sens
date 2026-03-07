@@ -55,6 +55,87 @@ export function parseEyeStateFromLight(lightLevel: number): 'blink' | 'eyes open
   return null;
 }
 
+// ---------------------------------------------------------------------------
+// ESP32 pipe-delimited format parser
+// ---------------------------------------------------------------------------
+
+/**
+ * Parsed result from the ESP32 pipe-delimited BLE string format.
+ * Format: "BAT:85|LAT:2050|VAL:450"
+ */
+export interface Esp32ParsedData {
+  /** Battery percentage (0–100), or null if not present / malformed */
+  battery: number | null;
+  /** Actuation latency in milliseconds, or null if not present / malformed */
+  latency: number | null;
+  /** Raw light level sensor value (VAL), or null if not present / malformed */
+  value: number | null;
+}
+
+/**
+ * Parses the ESP32 pipe-delimited BLE notification string.
+ * Format: "BAT:85|LAT:2050|VAL:450"
+ *
+ * Splits on '|', then extracts numeric values after BAT:, LAT:, and VAL: prefixes.
+ * Non-matching or malformed segments are silently ignored (return null for that field).
+ *
+ * @param text - The decoded UTF-8 text string from the BLE notification
+ * @returns Esp32ParsedData with battery, latency, and value fields
+ */
+export function parseEsp32PipeFormat(text: string): Esp32ParsedData {
+  const result: Esp32ParsedData = { battery: null, latency: null, value: null };
+
+  try {
+    const segments = text.trim().split('|');
+
+    for (const segment of segments) {
+      const trimmed = segment.trim();
+
+      // BAT:<number>
+      if (/^BAT:/i.test(trimmed)) {
+        const numStr = trimmed.slice(4); // everything after "BAT:"
+        const val = parseFloat(numStr);
+        if (!isNaN(val) && val >= 0 && val <= 100) {
+          result.battery = Math.round(val);
+        }
+        continue;
+      }
+
+      // LAT:<number>
+      if (/^LAT:/i.test(trimmed)) {
+        const numStr = trimmed.slice(4); // everything after "LAT:"
+        const val = parseFloat(numStr);
+        if (!isNaN(val) && val >= 0) {
+          result.latency = Math.round(val);
+        }
+        continue;
+      }
+
+      // VAL:<number>
+      if (/^VAL:/i.test(trimmed)) {
+        const numStr = trimmed.slice(4); // everything after "VAL:"
+        const val = parseFloat(numStr);
+        if (!isNaN(val) && val >= 0) {
+          result.value = Math.round(val);
+        }
+        continue;
+      }
+    }
+  } catch (err) {
+    // Silently ignore parse errors
+  }
+
+  return result;
+}
+
+/**
+ * Returns true if the given text looks like an ESP32 pipe-delimited string.
+ * Checks for at least one of the known prefixes (BAT:, LAT:, VAL:).
+ */
+export function isEsp32PipeFormat(text: string): boolean {
+  return /(?:BAT|LAT|VAL):/i.test(text);
+}
+
 /**
  * Parses a Nordic UART Service (NUS) notification payload into a numeric blink rate.
  * NUS sends data as UTF-8 text, typically in formats like:

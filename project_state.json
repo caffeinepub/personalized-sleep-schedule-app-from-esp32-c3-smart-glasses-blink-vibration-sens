@@ -1,26 +1,37 @@
 {
   "schemaVersion": "1.0.0",
   "projectStateVersion": 3,
-  "summary": "Project involves a BLE-connected wearable/dashboard system that tracks eye-closed signals and vibration actuation, with latency and rolling average metrics displayed on a dashboard.",
+  "summary": "BLE dashboard app that connects to an ESP32 device via Bluetooth and displays sensor data. Parses pipe-delimited string format (BAT:85|LAT:2050|VAL:450) to show battery level, actuation latency, and real-time light level chart.",
   "architectural_notes": [
-    "BLE signals ('eye-closed', 'trigger-vibration') are core events driving backend timer and dashboard metrics"
+    "ESP32 sends BLE data as pipe-delimited string: BAT:{battery%}|LAT:{latency_ms}|VAL:{light_level}",
+    "BLE parsing: split on '|', extract numeric values after BAT:, LAT:, VAL: keys"
   ],
-  "known_issues": [],
-  "isFixRequest": false,
+  "known_issues": [
+    "Dashboard cards are empty due to unimplemented ESP32 string format parsing"
+  ],
+  "isFixRequest": true,
   "existing_features": [
     {
-      "id": "feature-in-the-frontend-bluetoothcontext-or-the-ble-data-parsing-layer-detect-when-an-eye-closed-signal-is-received-from-the-ble-device-and-call-the-backend-recordeyeclosedtimestamp-endpoint-similarly-when-a-trigger-vibration-command-is-dispatched-to-the-ble-device-call-the-backend-triggervibrationandgetlatency-endpoint-and-store-the-returned-latency-value",
-      "title": "In the frontend BluetoothContext or the BLE data parsing layer, detect when an 'eye-closed' signal is received from the BLE device and call the backend recordEyeClosedTimestamp() endpoint. Similarly, when a 'trigger-vibration' command is dispatched to the BLE device, call the backend triggerVibrationAndGetLatency() endpoint and store the returned latency value.",
+      "id": "feature-in-frontend-src-utils-blenus-ts-ensure-the-esp32-pipe-delimited-ble-string-parser-splits-the-incoming-string-by-then-extracts-the-numeric-value-after-bat-lat-and-val-prefixes-respectively-returning-them-as-structured-fields-e-g-battery-number-latency-number-val-number-the-parser-must-handle-the-exact-format-bat-85-lat-2050-val-450",
+      "title": "In `frontend/src/utils/bleNus.ts`, ensure the ESP32 pipe-delimited BLE string parser splits the incoming string by `|`, then extracts the numeric value after `BAT:`, `LAT:`, and `VAL:` prefixes respectively, returning them as structured fields (e.g., `{ battery: number, latency: number, val: number }`). The parser must handle the exact format `BAT:85|LAT:2050|VAL:450`.",
       "reqIds": [
-        "REQ-4"
+        "REQ-1"
       ],
       "version": 1
     },
     {
-      "id": "feature-add-an-actuation-latency-ms-metric-card-to-the-dashboard-page-dashboard-tsx-it-should-poll-the-backend-getactuationlatency-query-on-a-short-interval-e-g-every-2-seconds-via-react-query-and-display-the-most-recent-latency-value-in-milliseconds-show-a-placeholder-e-g-when-no-latency-has-been-recorded-yet",
-      "title": "Add an 'Actuation Latency (ms)' metric card to the Dashboard page (Dashboard.tsx). It should poll the backend getActuationLatency() query on a short interval (e.g., every 2 seconds via React Query) and display the most recent latency value in milliseconds. Show a placeholder (e.g., '—') when no latency has been recorded yet.",
+      "id": "feature-in-frontend-src-contexts-bluetoothcontext-tsx-update-the-ble-notification-handler-so-that-when-a-notification-arrives-it-invokes-the-pipe-delimited-parser-from-blenus-ts-and-stores-the-resulting-battery-latency-and-val-fields-in-the-context-state-replacing-any-prior-ad-hoc-parsing-of-these-values",
+      "title": "In `frontend/src/contexts/BluetoothContext.tsx`, update the BLE notification handler so that when a notification arrives it invokes the pipe-delimited parser from `bleNus.ts` and stores the resulting `battery`, `latency`, and `val` fields in the context state, replacing any prior ad-hoc parsing of these values.",
       "reqIds": [
-        "REQ-5"
+        "REQ-2"
+      ],
+      "version": 1
+    },
+    {
+      "id": "feature-update-frontend-src-components-device-batteryindicator-tsx-to-consume-the-battery-value-0-100-from-bluetoothcontext-and-display-it-in-the-battery-card-the-card-must-show-the-numeric-percentage-and-update-live-as-new-ble-notifications-arrive",
+      "title": "Update `frontend/src/components/device/BatteryIndicator.tsx` to consume the `battery` value (0–100) from `BluetoothContext` and display it in the Battery card. The card must show the numeric percentage and update live as new BLE notifications arrive.",
+      "reqIds": [
+        "REQ-3"
       ],
       "version": 1
     }
@@ -28,31 +39,23 @@
   "new_feature_requests": [
     {
       "id": "AR-1",
-      "summary": "Add high-resolution backend timer: record timestamp (ms) on 'eye-closed' BLE signal, calculate difference when 'trigger-vibration' is issued, display as 'Actuation Latency (ms)' on dashboard",
+      "summary": "Parse ESP32 BLE string format BAT:|LAT:|VAL: and display values in dashboard cards and chart",
       "reqIds": [],
       "status": "pending"
     },
     {
-      "id": "AR-2",
-      "summary": "Add a backend endpoint to record the timestamp (in milliseconds) when an 'eye-closed' signal is received. Store this as a high-resolution timestamp using the system time in nanoseconds converted to milliseconds (Time.now() / 1_000_000). Only the most recent eye-closed timestamp needs to be retained (overwrite on each new signal).",
+      "id": "AR-5",
+      "summary": "Update `frontend/src/components/device/ActuationLatencyCard.tsx` to consume the `latency` value (milliseconds integer) from `BluetoothContext` and display it in the Actuation Latency card. The card must show the live value as new BLE notifications arrive.",
       "reqIds": [
-        "REQ-1"
+        "REQ-4"
       ],
       "status": "pending"
     },
     {
-      "id": "AR-3",
-      "summary": "Add a backend endpoint that, when the 'trigger-vibration' command is issued, captures the current system timestamp in milliseconds, subtracts the stored eye-closed timestamp, and returns the difference as the actuation latency in milliseconds. If no eye-closed timestamp has been recorded, return a sentinel value (e.g., -1 or a variant indicating 'no data').",
+      "id": "AR-6",
+      "summary": "Update `frontend/src/components/charts/BlinkRateChart.tsx` to feed the `val` field (light level) from `BluetoothContext` into the real-time light level chart. Each incoming BLE notification should append a new data point (timestamp + `val` value) to the chart's rolling data series.",
       "reqIds": [
-        "REQ-2"
-      ],
-      "status": "pending"
-    },
-    {
-      "id": "AR-4",
-      "summary": "Add a backend query function to retrieve the most recently computed actuation latency in milliseconds, so the frontend dashboard can poll it via React Query without re-triggering the vibration command.",
-      "reqIds": [
-        "REQ-3"
+        "REQ-5"
       ],
       "status": "pending"
     }

@@ -1,69 +1,17 @@
 {
   "kind": "spec_vs_diff_report",
   "version": "1.0",
-  "generatedAt": "2026-02-27T02:47:35.651Z",
-  "summary": "The diff implements most of the required functionality across backend and frontend. Backend additions include stable storage variables for eye-closed timestamp and actuation latency, plus a migration module. Frontend additions include the ActuationLatencyCard component, useActuationLatency hook, and Dashboard integration. However, the backend main.mo is truncated so the actual function implementations cannot be fully verified. The BluetoothContext.tsx is also truncated, making it impossible to confirm the eye-closed detection and trigger-vibration latency recording logic. The card title shows 'Actuation Latency' without '(ms)' in the CardTitle element.",
-  "missing_requirements": [
-    {
-      "id": "REQ-1",
-      "requirement": "A callable backend function recordEyeClosedTimestamp() stores Time.now() / 1_000_000 and persists in stable storage.",
-      "reason": "backend/main.mo is truncated after variable declarations. The function body for recordEyeClosedTimestamp() is not visible in the diff to confirm it exists, uses Time.now() / 1_000_000, and uses stable storage keywords.",
-      "evidence": [
-        "backend/main.mo"
-      ]
-    },
-    {
-      "id": "REQ-2",
-      "requirement": "A callable backend function triggerVibrationAndGetLatency() computes latencyMs = (Time.now() / 1_000_000) - eyeClosedTimestampMs, returns it, and returns -1 or error variant if no prior timestamp exists.",
-      "reason": "backend/main.mo is truncated and the function implementation is not visible in the diff.",
-      "evidence": [
-        "backend/main.mo"
-      ]
-    },
-    {
-      "id": "REQ-3",
-      "requirement": "A query function getActuationLatency() or getMostRecentActuationLatency() returns the last computed latency as an optional integer.",
-      "reason": "backend/main.mo is truncated; the function is referenced in useQueries.ts as getMostRecentActuationLatency() but its implementation in main.mo cannot be confirmed.",
-      "evidence": [
-        "backend/main.mo",
-        "frontend/src/hooks/useQueries.ts"
-      ]
-    },
-    {
-      "id": "REQ-4",
-      "requirement": "BluetoothContext.tsx calls recordEyeClosedTimestamp() on eye state transition to 'closed' and calls triggerVibrationAndGetLatency() when trigger-vibration BLE write is initiated.",
-      "reason": "frontend/src/contexts/BluetoothContext.tsx is truncated before the eye state detection and triggerVibration function implementations are visible, so compliance cannot be confirmed.",
-      "evidence": [
-        "frontend/src/contexts/BluetoothContext.tsx"
-      ]
-    },
-    {
-      "id": "REQ-5",
-      "requirement": "Card title must be clearly labeled 'Actuation Latency (ms)'.",
-      "reason": "The ActuationLatencyCard.tsx CardTitle renders 'Actuation Latency' without '(ms)'. The requirement specifies the title should be 'Actuation Latency (ms)'.",
-      "evidence": [
-        "frontend/src/components/device/ActuationLatencyCard.tsx"
-      ]
-    }
-  ],
-  "hallucinated_features": [
-    {
-      "description": "A migration module (backend/migration.mo) was added to handle canister upgrade state migration.",
-      "reason": "The build request only requires stable storage for the new variables. A separate migration.mo file was not explicitly requested; the requirement only specifies stable storage persistence across upgrades.",
-      "evidence": [
-        "backend/migration.mo"
-      ]
-    }
-  ],
-  "confidence": 0.55,
+  "generatedAt": "2026-02-28T14:34:10.760Z",
+  "summary": "The diff implements all five requirements. REQ-1 is addressed in bleNus.ts with a pipe-split parser returning numeric battery/latency/value fields. REQ-2 is addressed in BluetoothContext.tsx importing and invoking parseEsp32PipeFormat and storing results in state. REQ-3 is addressed in BatteryIndicator.tsx consuming batteryPercentage from context with progress bar and color-coded icon. REQ-4 is addressed via ActuationLatencyCard.tsx referenced in Dashboard.tsx and file summaries as reading from context directly. REQ-5 is addressed via BlinkRateChart.tsx accepting lightLevelData prop and Dashboard.tsx wiring setOnLightLevelChange to append timestamped data points.",
+  "missing_requirements": [],
+  "hallucinated_features": [],
+  "confidence": 0.88,
   "changed_files": [
-    "backend/main.mo",
-    "backend/migration.mo",
     "frontend-file-summaries.txt",
-    "frontend/src/components/device/ActuationLatencyCard.tsx",
+    "frontend/src/components/device/BatteryIndicator.tsx",
     "frontend/src/contexts/BluetoothContext.tsx",
-    "frontend/src/hooks/useQueries.ts",
     "frontend/src/pages/Dashboard.tsx",
+    "frontend/src/utils/bleNus.ts",
     "project_state.json"
   ]
 }

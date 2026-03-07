@@ -11,6 +11,8 @@ import {
   parseBatteryData,
   parseChargingStatus,
   parseEyeStateFromLight,
+  parseEsp32PipeFormat,
+  isEsp32PipeFormat,
   EYES_CLOSED_MAX,
   BLINK_MIN,
   BLINK_MAX,
@@ -34,8 +36,12 @@ interface BluetoothContextValue {
   latestReading: string | null;
   batteryPercentage: number | undefined;
   isCharging: boolean;
+  /** Most recent actuation latency (ms) parsed from LAT: field, or undefined if not yet received */
+  actuationLatency: number | undefined;
   /** Sends a vibration trigger BLE command and records actuation latency on the backend. */
   triggerVibration: () => Promise<void>;
+  /** Register a callback that fires whenever a new VAL: light level reading arrives */
+  setOnLightLevelChange: (callback: (value: number) => void) => void;
 }
 
 interface ConnectOptions {
@@ -54,10 +60,6 @@ const BluetoothContext = createContext<BluetoothContextValue | undefined>(undefi
 const MIN_CONNECTION_INTERVAL_MS = 2000;
 const MTU_EXCHANGE_DELAY_MS = 500;
 
-// Calibrated eye state thresholds — derived from bleNus.ts constants (single source of truth)
-// Eyes closed:  lightLevel < EYES_CLOSED_MAX (< 600, exclusive)
-// Blink:        BLINK_MIN (1500) – BLINK_MAX (1700) inclusive
-// Eyes open:    EYES_OPEN_MIN (1800) – EYES_OPEN_MAX (2000) inclusive
 const ROLLING_WINDOW_MS = 60000; // 60 seconds
 
 type EyeState = 'open' | 'closed' | 'unknown';
@@ -69,12 +71,14 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
   const [latestReading, setLatestReading] = useState<string | null>(null);
   const [batteryPercentage, setBatteryPercentage] = useState<number | undefined>(undefined);
   const [isCharging, setIsCharging] = useState<boolean>(false);
+  const [actuationLatency, setActuationLatency] = useState<number | undefined>(undefined);
   
   const deviceRef = useRef<BluetoothDevice | null>(null);
   const characteristicRef = useRef<BluetoothRemoteGATTCharacteristic | null>(null);
   const serverRef = useRef<BluetoothRemoteGATTServer | null>(null);
   const disconnectListenerRef = useRef<((event: Event) => void) | null>(null);
   const onBlinkRateChangeRef = useRef<((blinkRate: number) => void) | undefined>(undefined);
+  const onLightLevelChangeRef = useRef<((value: number) => void) | undefined>(undefined);
   const notificationsEnabledRef = useRef<boolean>(false);
   
   const isConnectingRef = useRef(false);
@@ -85,6 +89,12 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
   // Blink detection state with calibrated eye state tracking
   const blinkTimestampsRef = useRef<BlinkTimestamp[]>([]);
   const currentEyeStateRef = useRef<EyeState>('unknown');
+
+  /**
+   * Debounce ref for blink counting via the numeric VAL path.
+   * True while VAL is currently below 600 (inside a blink event).
+   */
+  const isInsideBlinkEventRef = useRef<boolean>(false);
 
   // Local blink history for persisting eye state events
   const { addDataPoint } = useLocalBlinkHistory();
@@ -102,15 +112,10 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     onBlinkRateChangeRef.current = callback;
   }, []);
 
-  /**
-   * Classifies a raw light level into an EyeState using the canonical threshold
-   * constants from bleNus.ts.
-   *
-   * - 'closed'  when lightLevel < EYES_CLOSED_MAX (< 600)
-   * - 'closed'  when lightLevel is in [BLINK_MIN, BLINK_MAX] (1500–1700)
-   * - 'open'    when lightLevel is in [EYES_OPEN_MIN, EYES_OPEN_MAX] (1800–2000)
-   * - 'unknown' otherwise
-   */
+  const setOnLightLevelChange = useCallback((callback: (value: number) => void) => {
+    onLightLevelChangeRef.current = callback;
+  }, []);
+
   const classifyEyeState = (lightLevel: number): EyeState => {
     if (lightLevel < EYES_CLOSED_MAX) {
       return 'closed';
@@ -139,6 +144,78 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
       console.warn('Failed to decode as UTF-8 text:', err);
     }
 
+    const now = Date.now();
+
+    // -----------------------------------------------------------------------
+    // ESP32 pipe-delimited format: "BAT:85|LAT:2050|VAL:450"
+    // Handle this format first — it takes priority over legacy parsers.
+    // -----------------------------------------------------------------------
+    if (decodedText && isEsp32PipeFormat(decodedText)) {
+      const parsed = parseEsp32PipeFormat(decodedText);
+
+      // Update battery from BAT: field
+      if (parsed.battery !== null) {
+        setBatteryPercentage(parsed.battery);
+      }
+
+      // Update actuation latency from LAT: field
+      if (parsed.latency !== null) {
+        setActuationLatency(parsed.latency);
+      }
+
+      // Process VAL: field for blink detection and light level chart
+      if (parsed.value !== null) {
+        const rawSensorValue = parsed.value;
+
+        // Emit light level to chart callback
+        if (onLightLevelChangeRef.current) {
+          onLightLevelChangeRef.current(rawSensorValue);
+        }
+
+        const newEyeState = classifyEyeState(rawSensorValue);
+        const eyeStateLabel = parseEyeStateFromLight(rawSensorValue);
+
+        if (eyeStateLabel !== null) {
+          const currentBlinkCount = blinkTimestampsRef.current.length;
+          addDataPoint(currentBlinkCount, eyeStateLabel);
+        }
+
+        // Blink counting with debounce for the VAL < 600 threshold
+        if (rawSensorValue < EYES_CLOSED_MAX) {
+          if (!isInsideBlinkEventRef.current) {
+            isInsideBlinkEventRef.current = true;
+            blinkTimestampsRef.current.push({ timestamp: now });
+            if (actorRef.current) {
+              actorRef.current.recordEyeClosedTimestamp().catch(() => {});
+            }
+          }
+        } else {
+          isInsideBlinkEventRef.current = false;
+        }
+
+        if (newEyeState !== 'unknown') {
+          currentEyeStateRef.current = newEyeState;
+        }
+      }
+
+      // Prune timestamps older than 60 seconds
+      const cutoffTime = now - ROLLING_WINDOW_MS;
+      blinkTimestampsRef.current = blinkTimestampsRef.current.filter(
+        (blink) => blink.timestamp >= cutoffTime
+      );
+
+      // Emit blink rate
+      if (onBlinkRateChangeRef.current) {
+        onBlinkRateChangeRef.current(blinkTimestampsRef.current.length);
+      }
+
+      return; // Done — skip legacy parsers
+    }
+
+    // -----------------------------------------------------------------------
+    // Legacy parsing path (non-pipe-delimited formats)
+    // -----------------------------------------------------------------------
+
     // Parse battery data from the notification
     if (decodedText) {
       const batteryData = parseBatteryData(decodedText);
@@ -146,7 +223,6 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
         setBatteryPercentage(batteryData.percentage);
         setIsCharging(batteryData.isCharging);
       } else {
-        // Check for standalone charging status update
         const chargingStatus = parseChargingStatus(decodedText);
         if (chargingStatus !== null) {
           setIsCharging(chargingStatus);
@@ -154,7 +230,6 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    const now = Date.now();
     let newEyeState: EyeState = 'unknown';
 
     // First, check for eye-state tokens (e.g., "close", "open")
@@ -165,11 +240,8 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
         newEyeState = 'closed';
         const previousEyeState = currentEyeStateRef.current;
         
-        // Count a blink on transition to closed (from open or unknown)
-        // De-duplication: only count if we weren't already in closed state
         if (previousEyeState !== 'closed') {
           blinkTimestampsRef.current.push({ timestamp: now });
-          // Record eye-closed timestamp on the backend (fire-and-forget)
           if (actorRef.current) {
             actorRef.current.recordEyeClosedTimestamp().catch(() => {});
           }
@@ -195,47 +267,45 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
         rawSensorValue = parseHeartRateBlinkRate(value);
       }
 
-      // Only process numeric values if we got one
       if (rawSensorValue !== null) {
         newEyeState = classifyEyeState(rawSensorValue);
-        const previousEyeState = currentEyeStateRef.current;
 
-        // Use parseEyeStateFromLight to get the canonical eye state label for recording
+        if (onLightLevelChangeRef.current) {
+          onLightLevelChangeRef.current(rawSensorValue);
+        }
+
         const eyeStateLabel = parseEyeStateFromLight(rawSensorValue);
 
         if (eyeStateLabel !== null) {
-          // Record the event with its eye state label into local blink history
-          // Use the current rolling blink count as the blinkRate value
           const currentBlinkCount = blinkTimestampsRef.current.length;
           addDataPoint(currentBlinkCount, eyeStateLabel);
         }
 
-        // Count a blink on transition from open to closed (numeric path)
-        if (previousEyeState === 'open' && newEyeState === 'closed') {
-          blinkTimestampsRef.current.push({ timestamp: now });
-          // Record eye-closed timestamp on the backend (fire-and-forget)
-          if (actorRef.current) {
-            actorRef.current.recordEyeClosedTimestamp().catch(() => {});
+        if (rawSensorValue < EYES_CLOSED_MAX) {
+          if (!isInsideBlinkEventRef.current) {
+            isInsideBlinkEventRef.current = true;
+            blinkTimestampsRef.current.push({ timestamp: now });
+            if (actorRef.current) {
+              actorRef.current.recordEyeClosedTimestamp().catch(() => {});
+            }
           }
+        } else {
+          isInsideBlinkEventRef.current = false;
         }
       }
     }
     
-    // Update current eye state if we determined a new state
     if (newEyeState !== 'unknown') {
       currentEyeStateRef.current = newEyeState;
     }
 
-    // Prune timestamps older than 60 seconds
     const cutoffTime = now - ROLLING_WINDOW_MS;
     blinkTimestampsRef.current = blinkTimestampsRef.current.filter(
       (blink) => blink.timestamp >= cutoffTime
     );
 
-    // Calculate blinks per minute (count of blinks in the last 60 seconds)
     const blinksInWindow = blinkTimestampsRef.current.length;
 
-    // Emit the computed blink rate
     if (onBlinkRateChangeRef.current) {
       onBlinkRateChangeRef.current(blinksInWindow);
     }
@@ -288,13 +358,13 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     setConnectionState('disconnected');
     setLatestReading(null);
     
-    // Reset blink detection state
     blinkTimestampsRef.current = [];
     currentEyeStateRef.current = 'unknown';
+    isInsideBlinkEventRef.current = false;
 
-    // Reset battery state
     setBatteryPercentage(undefined);
     setIsCharging(false);
+    setActuationLatency(undefined);
   }, [cleanupConnection]);
 
   useEffect(() => {
@@ -344,8 +414,6 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
       const characteristicUUID = options.characteristicUUID ?? NUS_TX_CHARACTERISTIC_UUID;
       const normalizedCharacteristicUUID = normalizeUUID(characteristicUUID);
 
-      // Use acceptAllDevices so the browser shows all nearby BLE devices,
-      // and declare the NUS service UUID in optionalServices so GATT access is granted.
       const requestOptions: RequestDeviceOptions = {
         acceptAllDevices: true,
         optionalServices: [NUS_SERVICE_UUID],
@@ -428,60 +496,35 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
       }
 
       setConnectionState('connected');
+      isConnectingRef.current = false;
+
     } catch (err: any) {
       if (myToken !== attemptTokenRef.current) {
         isConnectingRef.current = false;
         return;
       }
 
-      if (err?.name === 'NotFoundError' || err?.message?.includes('User cancelled')) {
-        setError('Device selection cancelled.');
-      } else if (err?.name === 'SecurityError') {
-        setError('Bluetooth permission denied. Please allow Bluetooth access.');
-      } else if (err?.name === 'NetworkError') {
-        setError('Failed to connect to device. Make sure it is powered on and in range.');
+      const errorMessage = err?.message || 'Unknown error occurred';
+      
+      if (errorMessage.includes('User cancelled') || errorMessage.includes('chooser')) {
+        setError(null);
       } else {
-        setError(err?.message ?? 'Unknown Bluetooth error occurred.');
+        setError(errorMessage);
       }
+      
       setConnectionState('disconnected');
-    } finally {
-      if (myToken === attemptTokenRef.current) {
-        isConnectingRef.current = false;
-      }
+      isConnectingRef.current = false;
+      cleanupConnection();
     }
   }, [isSupported, cleanupConnection, handleCharacteristicValueChanged]);
 
-  /**
-   * Sends a 'trigger-vibration' BLE write command and records actuation latency
-   * on the backend by calling triggerVibrationAndCalculateLatency().
-   */
   const triggerVibration = useCallback(async () => {
-    // Write the vibration command over BLE if connected
-    if (characteristicRef.current && serverRef.current?.connected) {
-      try {
-        const encoder = new TextEncoder();
-        const command = encoder.encode('trigger-vibration');
-        // Use writeValueWithoutResponse if available, otherwise writeValue
-        const char = characteristicRef.current as any;
-        if (char.writeValueWithoutResponse) {
-          await char.writeValueWithoutResponse(command);
-        } else {
-          await char.writeValue(command);
-        }
-      } catch (err) {
-        console.warn('BLE vibration write failed:', err);
-      }
-    }
-
-    // Calculate and store actuation latency on the backend
-    if (actorRef.current) {
-      try {
-        await actorRef.current.triggerVibrationAndCalculateLatency();
-        // Invalidate the latency query so the dashboard refreshes immediately
-        queryClient.invalidateQueries({ queryKey: ['actuationLatency'] });
-      } catch (err) {
-        console.warn('Failed to record actuation latency:', err);
-      }
+    if (!actorRef.current) return;
+    try {
+      await actorRef.current.triggerVibrationAndCalculateLatency();
+      queryClient.invalidateQueries({ queryKey: ['actuationLatency'] });
+    } catch (err) {
+      console.warn('Failed to trigger vibration:', err);
     }
   }, [queryClient]);
 
@@ -495,7 +538,9 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     latestReading,
     batteryPercentage,
     isCharging,
+    actuationLatency,
     triggerVibration,
+    setOnLightLevelChange,
   };
 
   return (

@@ -8,6 +8,7 @@ import BatteryIndicator from '../components/device/BatteryIndicator';
 import ActuationLatencyCard from '../components/device/ActuationLatencyCard';
 import TimeRangePicker, { TimeRange } from '../components/time/TimeRangePicker';
 import BlinkRateChart from '../components/charts/BlinkRateChart';
+import type { LightLevelDataPoint } from '../components/charts/BlinkRateChart';
 import SleepScheduleCard from '../components/recommendation/SleepScheduleCard';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,12 +23,20 @@ interface CapturedScheduleState {
   capturedAt: number;
 }
 
+const MAX_LIGHT_LEVEL_POINTS = 100;
+
 export default function Dashboard() {
   const { deviceId, setDeviceId, isValid } = useDeviceId();
-  const { connectionState, latestReading, setOnBlinkRateChange, batteryPercentage, isCharging } = useBluetooth();
+  const {
+    connectionState,
+    latestReading,
+    setOnBlinkRateChange,
+    setOnLightLevelChange,
+  } = useBluetooth();
   
   const [currentBlinkRate, setCurrentBlinkRate] = useState<number | null>(null);
   const [blinkHistory, setBlinkHistory] = useState<number[]>([]);
+  const [lightLevelHistory, setLightLevelHistory] = useState<LightLevelDataPoint[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const { history: persistedHistory, addDataPoint: addPersistedDataPoint, lastSaveTime, totalPoints } = useLocalBlinkHistory();
@@ -57,7 +66,6 @@ export default function Dashboard() {
 
     setIsGenerating(true);
 
-    // Capture the current state at this moment
     const stateInfo = currentStateInfo;
     const plan = getSchedulePlanForState(stateInfo.state);
 
@@ -86,12 +94,25 @@ export default function Dashboard() {
       // Add to in-memory history for visualization
       setBlinkHistory(prev => {
         const updated = [...prev, blinkRate];
-        return updated.slice(-100); // Keep last 100 readings
+        return updated.slice(-100);
       });
     });
   }, [setOnBlinkRateChange, addRollingDataPoint, addPersistedDataPoint]);
 
-  // Draw simple chart
+  // Set up the light level change handler (VAL: field from ESP32)
+  useEffect(() => {
+    setOnLightLevelChange((value: number) => {
+      setLightLevelHistory(prev => {
+        const updated: LightLevelDataPoint[] = [
+          ...prev,
+          { timestamp: Date.now(), value },
+        ];
+        return updated.slice(-MAX_LIGHT_LEVEL_POINTS);
+      });
+    });
+  }, [setOnLightLevelChange]);
+
+  // Draw simple blink rate chart
   useEffect(() => {
     if (!canvasRef.current || blinkHistory.length === 0) return;
 
@@ -193,13 +214,10 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Battery Indicator */}
-          <BatteryIndicator
-            batteryPercentage={batteryPercentage}
-            isCharging={isCharging}
-          />
+          {/* Battery Indicator — reads BAT: field directly from BluetoothContext */}
+          <BatteryIndicator />
 
-          {/* Actuation Latency */}
+          {/* Actuation Latency — reads LAT: field directly from BluetoothContext */}
           <ActuationLatencyCard />
         </div>
 
@@ -230,7 +248,16 @@ export default function Dashboard() {
 
         <Separator />
 
-        {/* Session Chart */}
+        {/* Real-time Light Level Chart (VAL: from ESP32) */}
+        {lightLevelHistory.length > 0 && (
+          <BlinkRateChart
+            data={[]}
+            title="Real-time Light Level (VAL)"
+            lightLevelData={lightLevelHistory}
+          />
+        )}
+
+        {/* Session Blink Rate Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
