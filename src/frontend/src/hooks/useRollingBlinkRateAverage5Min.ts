@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from "react";
 
 export interface BlinkRatePoint {
   timestamp: number;
@@ -21,11 +21,11 @@ export function useRollingBlinkRateAverage5Min() {
     setDataPoints((prev) => {
       // Add new point
       const updated = [...prev, newPoint];
-      
+
       // Prune old points (older than 5 minutes)
       const cutoffTime = now - FIVE_MINUTES_MS;
-      const pruned = updated.filter(point => point.timestamp >= cutoffTime);
-      
+      const pruned = updated.filter((point) => point.timestamp >= cutoffTime);
+
       lastPruneRef.current = now;
       return pruned;
     });
@@ -38,11 +38,14 @@ export function useRollingBlinkRateAverage5Min() {
   // Calculate 5-minute rolling average
   const now = Date.now();
   const cutoffTime = now - FIVE_MINUTES_MS;
-  const recentPoints = dataPoints.filter(point => point.timestamp >= cutoffTime);
-  
+  const recentPoints = dataPoints.filter(
+    (point) => point.timestamp >= cutoffTime,
+  );
+
   const hasRecentData = recentPoints.length > 0;
   const rollingAverage = hasRecentData
-    ? recentPoints.reduce((sum, point) => sum + point.blinkRate, 0) / recentPoints.length
+    ? recentPoints.reduce((sum, point) => sum + point.blinkRate, 0) /
+      recentPoints.length
     : 0;
 
   return {

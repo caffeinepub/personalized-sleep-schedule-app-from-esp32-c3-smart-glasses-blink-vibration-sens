@@ -1,19 +1,27 @@
 import Map "mo:core/Map";
 import List "mo:core/List";
 import Time "mo:core/Time";
+import Float "mo:core/Float";
+import Int "mo:core/Int";
 import Principal "mo:core/Principal";
 import Order "mo:core/Order";
 import Iter "mo:core/Iter";
 import Runtime "mo:core/Runtime";
-
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
+
+
 
 actor {
   type DeviceId = Text;
   type Timestamp = Int;
   type BlinkRate = Nat;
   type VibrationEventId = Nat;
+  type DataPoint = (Timestamp, BlinkRate);
+  type RollingAverageBuffer = List.List<DataPoint>;
+
+  var lastEyeClosedTimestamp : ?Int = null;
+  var mostRecentActuationLatency : ?Int = null;
 
   public type SmartGlassesEvent = {
     deviceId : DeviceId;
@@ -21,11 +29,17 @@ actor {
     userPrincipal : ?Principal;
   };
 
-  public type BlinkRateMeasurement = SmartGlassesEvent and {
+  public type BlinkRateMeasurement = {
+    deviceId : DeviceId;
+    timestamp : Timestamp;
+    userPrincipal : ?Principal;
     blinkRate : BlinkRate;
   };
 
-  public type VibrationEvent = SmartGlassesEvent and {
+  public type VibrationEvent = {
+    deviceId : DeviceId;
+    timestamp : Timestamp;
+    userPrincipal : ?Principal;
     eventId : VibrationEventId;
   };
 
@@ -40,20 +54,28 @@ actor {
     name : Text;
   };
 
+  public type BlinkSummary = {
+    deviceId : DeviceId;
+    timestamp : Timestamp;
+    userPrincipal : ?Principal;
+    totalBlinks : Nat;
+    averageBlinkRate : ?Nat;
+    maxBlinkRate : ?Nat;
+    minBlinkRate : ?Nat;
+  };
+
   module SmartGlassesEvent {
     public func compare(a : SmartGlassesEvent, b : SmartGlassesEvent) : Order.Order {
-      switch (
-        Principal.compare(
-          switch (a.userPrincipal) {
-            case (?principal) { principal };
-            case (null) { Principal.fromText("") };
-          },
-          switch (b.userPrincipal) {
-            case (?principal) { principal };
-            case (null) { Principal.fromText("") };
-          },
-        )
-      ) {
+      switch (Principal.compare(
+        switch (a.userPrincipal) {
+          case (?principal) { principal };
+          case (null) { Principal.fromText("") };
+        },
+        switch (b.userPrincipal) {
+          case (?principal) { principal };
+          case (null) { Principal.fromText("") };
+        },
+      )) {
         case (#equal) {
           switch (Text.compare(a.deviceId, b.deviceId)) {
             case (#equal) { Int.compare(a.timestamp, b.timestamp) };
@@ -65,21 +87,10 @@ actor {
     };
   };
 
-  // New BlinkSummary type and storage
-  public type BlinkSummary = {
-    deviceId : DeviceId;
-    timestamp : Timestamp;
-    userPrincipal : ?Principal;
-    totalBlinks : Nat;
-    averageBlinkRate : ?Nat;
-    maxBlinkRate : ?Nat;
-    minBlinkRate : ?Nat;
-    // Add additional summary metrics as needed
-  };
-
   let blinkRatesMap = Map.empty<DeviceId, List.List<BlinkRateMeasurement>>();
   let vibrationEventsMap = Map.empty<DeviceId, List.List<VibrationEvent>>();
-  let blinkSummariesMap = Map.empty<DeviceId, List.List<BlinkSummary>>(); // New map for summaries
+  let blinkSummariesMap = Map.empty<DeviceId, List.List<BlinkSummary>>();
+  let rollingAverageBuffers = Map.empty<DeviceId, RollingAverageBuffer>();
   var nextVibrationEventId = 0;
 
   let accessControlState = AccessControl.initState();
@@ -108,7 +119,6 @@ actor {
     userProfiles.add(caller, profile);
   };
 
-  // Helper function to filter data by ownership
   func filterByOwnership(caller : Principal, measurements : List.List<BlinkRateMeasurement>) : List.List<BlinkRateMeasurement> {
     if (AccessControl.isAdmin(accessControlState, caller)) {
       return measurements;
@@ -154,13 +164,11 @@ actor {
     );
   };
 
-  // Blink rate storage and retrieval
   public shared ({ caller }) func recordBlinkRate(deviceId : DeviceId, blinkRate : BlinkRate) : async () {
-    // Allow all callers (including guests/ESP32 devices) to record data
     let measurement : BlinkRateMeasurement = {
       deviceId;
       timestamp = Time.now();
-      userPrincipal = if (AccessControl.hasPermission(accessControlState, caller, #user)) { ?caller } else { null };
+      userPrincipal = null;
       blinkRate;
     };
     let existing = blinkRatesMap.get(deviceId);
@@ -186,14 +194,13 @@ actor {
     filtered.toArray();
   };
 
-  // Vibration event storage and retrieval
   public shared ({ caller }) func recordVibrationEvent(deviceId : DeviceId) : async () {
     // Allow all callers (including guests/ESP32 devices) to record data
     let event : VibrationEvent = {
       deviceId;
       eventId = nextVibrationEventId;
       timestamp = Time.now();
-      userPrincipal = if (AccessControl.hasPermission(accessControlState, caller, #user)) { ?caller } else { null };
+      userPrincipal = null;
     };
     nextVibrationEventId += 1;
     let existing = vibrationEventsMap.get(deviceId);
@@ -219,7 +226,6 @@ actor {
     filtered.toArray();
   };
 
-  // New backend summary recording method
   public shared ({ caller }) func recordBlinkSummary(deviceId : DeviceId, summary : BlinkSummary) : async () {
     let summaryWithTimestamp = { summary with timestamp = Time.now() };
 
@@ -254,7 +260,6 @@ actor {
     filtered.toArray();
   };
 
-  // Example query functions for filtering in time range
   public query ({ caller }) func getBlinkRatesInTimeRange(deviceId : DeviceId, startTime : Timestamp, endTime : Timestamp) : async [BlinkRateMeasurement] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
       Runtime.trap("Unauthorized: Only users can access device data");
@@ -302,7 +307,6 @@ actor {
       Runtime.trap("Unauthorized: Only users can generate sleep recommendations");
     };
 
-    // Verify caller has data for this device in the analysis window
     let measurements = switch (blinkRatesMap.get(deviceId)) {
       case (null) { List.empty<BlinkRateMeasurement>() };
       case (?list) { list };
@@ -318,7 +322,6 @@ actor {
 
     let hasData = relevantData.size() > 0 or AccessControl.isAdmin(accessControlState, caller);
 
-    // Check for blink summaries if no measurements are found
     if (not hasData) {
       let summaries = switch (blinkSummariesMap.get(deviceId)) {
         case (null) { List.empty<BlinkSummary>() };
@@ -338,14 +341,69 @@ actor {
       };
     };
 
-    // In a real implementation, you'd analyze blink rates, summaries, and vibration events here
-    // For now, return a dummy recommendation
-
     {
       suggestedBedtime = analysisWindowStart + 8 * 3600 * 1000000000;
       suggestedWakeup = analysisWindowStart + 16 * 3600 * 1000000000;
       analysisWindowStart;
       analysisWindowEnd;
+    };
+  };
+
+  func pruneBuffer(buffer : RollingAverageBuffer, currentTime : Timestamp) : RollingAverageBuffer {
+    buffer.filter(
+      func(point) {
+        let (timestamp, _) = point;
+        (currentTime - timestamp) <= 300_000_000_000;
+      }
+    );
+  };
+
+  public shared ({ caller }) func addDataPoint(deviceId : DeviceId, value : BlinkRate) : async ?Float {
+    if (not AccessControl.hasPermission(accessControlState, caller, #admin)) {
+      Runtime.trap("Unauthorized: Only admins can add data points");
+    };
+
+    let currentTime = Time.now();
+
+    let buffer = switch (rollingAverageBuffers.get(deviceId)) {
+      case (null) { List.empty<DataPoint>() };
+      case (?existing) {
+        let pruned = pruneBuffer(existing, currentTime);
+        rollingAverageBuffers.add(deviceId, pruned);
+        pruned;
+      };
+    };
+
+    buffer.add((currentTime, value));
+    rollingAverageBuffers.add(deviceId, buffer);
+
+    calculateAverage(buffer);
+  };
+
+  func calculateAverage(buffer : RollingAverageBuffer) : ?Float {
+    if (buffer.isEmpty()) { return null };
+
+    let sum = calculateSum(buffer);
+    let count = buffer.size().toFloat();
+
+    if (count != 0) {
+      ?(sum / count);
+    } else {
+      null;
+    };
+  };
+
+  func calculateSum(buffer : RollingAverageBuffer) : Float {
+    let iter = buffer.values();
+    switch (iter.next()) {
+      case (null) { 0.0 };
+      case (?first) {
+        let (_, value) = first;
+        iter.foldLeft(
+          value.toFloat(),
+          func(acc, (_, v)) { acc + v.toFloat() },
+        );
+      };
     };
   };
 
@@ -389,6 +447,51 @@ actor {
       };
       case (null) {};
     };
+
+    switch (rollingAverageBuffers.get(deviceId)) {
+      case (?buffer) {
+        let filtered = buffer.filter(
+          func(dataPoint) {
+            let (timestamp, _) = dataPoint;
+            timestamp >= thresholdTime;
+          }
+        );
+        rollingAverageBuffers.add(deviceId, filtered);
+      };
+      case (null) {};
+    };
+  };
+
+  // Store the timestamp when eyes are closed.
+  // No auth check: this signal comes from a device (like ESP32) and should be
+  // accessible to any caller, including guests, consistent with recordBlinkRate
+  // and recordVibrationEvent which also accept device signals without auth checks.
+  public shared ({ caller }) func recordEyeClosedTimestamp() : async () {
+    lastEyeClosedTimestamp := ?(Time.now() / 1_000_000);
+  };
+
+  // Calculate and store the actuation latency.
+  // Requires #user permission: this is a command issued from the user dashboard,
+  // not a raw device signal.
+  public shared ({ caller }) func triggerVibrationAndCalculateLatency() : async Int {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can trigger vibration commands");
+    };
+    let now = Time.now() / 1_000_000;
+    let latency = switch (lastEyeClosedTimestamp) {
+      case (null) { -1 };
+      case (?eyeClosedTime) { now - eyeClosedTime };
+    };
+    mostRecentActuationLatency := ?latency;
+    latency;
+  };
+
+  // Retrieve the most recent actuation latency for the dashboard.
+  // Requires #user permission: this is dashboard data intended for authenticated users.
+  public query ({ caller }) func getMostRecentActuationLatency() : async ?Int {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can retrieve actuation latency");
+    };
+    mostRecentActuationLatency;
   };
 };
-

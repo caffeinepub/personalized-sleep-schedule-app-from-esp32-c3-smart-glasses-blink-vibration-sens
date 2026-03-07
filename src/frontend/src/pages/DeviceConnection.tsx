@@ -1,32 +1,44 @@
-import { useState, useEffect } from 'react';
-import { useBluetooth } from '../contexts/BluetoothContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
-import { Bluetooth, Activity, AlertCircle, CheckCircle2, HardDrive } from 'lucide-react';
-import { useLocalBlinkHistory } from '../hooks/useLocalBlinkHistory';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import {
+  Activity,
+  AlertCircle,
+  Bluetooth,
+  CheckCircle2,
+  HardDrive,
+} from "lucide-react";
+import { useEffect, useState } from "react";
+import { useBluetooth } from "../contexts/BluetoothContext";
+import { useLocalBlinkHistory } from "../hooks/useLocalBlinkHistory";
 
 export default function DeviceConnection() {
-  const { 
-    connectionState, 
-    error, 
-    connect, 
-    disconnect, 
+  const {
+    connectionState,
+    error,
+    connect,
+    disconnect,
     isSupported,
     setOnBlinkRateChange,
-    latestReading
+    latestReading,
   } = useBluetooth();
 
-  const [serviceUUID, setServiceUUID] = useState('');
-  const [characteristicUUID, setCharacteristicUUID] = useState('');
+  const [serviceUUID, setServiceUUID] = useState("");
+  const [characteristicUUID, setCharacteristicUUID] = useState("");
   const [autoDiscover, setAutoDiscover] = useState(true);
   const [useCustomProfile, setUseCustomProfile] = useState(false);
   const [currentBlinkRate, setCurrentBlinkRate] = useState<number>(0);
-  
+
   const { addDataPoint } = useLocalBlinkHistory();
 
   useEffect(() => {
@@ -41,19 +53,20 @@ export default function DeviceConnection() {
       serviceUUID: serviceUUID || undefined,
       characteristicUUID: characteristicUUID || undefined,
       autoDiscover,
-      useCustomProfile
+      useCustomProfile,
     });
   };
 
-  const isConnected = connectionState === 'connected';
-  const isConnecting = connectionState === 'connecting';
+  const isConnected = connectionState === "connected";
+  const isConnecting = connectionState === "connecting";
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Device Connection</h1>
         <p className="text-muted-foreground">
-          Connect your Eye-R smart glasses via Bluetooth to monitor blink rate in real-time
+          Connect your Eye-R smart glasses via Bluetooth to monitor blink rate
+          in real-time
         </p>
       </div>
 
@@ -61,7 +74,8 @@ export default function DeviceConnection() {
         <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            Web Bluetooth is not supported in this browser. Please use Chrome, Edge, or Opera on desktop.
+            Web Bluetooth is not supported in this browser. Please use Chrome,
+            Edge, or Opera on desktop.
           </AlertDescription>
         </Alert>
       )}
@@ -82,32 +96,35 @@ export default function DeviceConnection() {
                 <Bluetooth className="h-6 w-6" />
                 <div>
                   <CardTitle>Connection Status</CardTitle>
-                  <CardDescription>Current device connection state</CardDescription>
+                  <CardDescription>
+                    Current device connection state
+                  </CardDescription>
                 </div>
               </div>
-              <Badge 
-                variant={isConnected ? 'default' : 'secondary'}
+              <Badge
+                variant={isConnected ? "default" : "secondary"}
                 className="text-sm"
               >
                 {isConnected && <CheckCircle2 className="h-3 w-3 mr-1" />}
-                {connectionState.charAt(0).toUpperCase() + connectionState.slice(1)}
+                {connectionState.charAt(0).toUpperCase() +
+                  connectionState.slice(1)}
               </Badge>
             </div>
           </CardHeader>
           <CardContent>
             <div className="flex gap-3">
               {!isConnected ? (
-                <Button 
-                  onClick={handleConnect} 
+                <Button
+                  onClick={handleConnect}
                   disabled={!isSupported || isConnecting}
                   className="flex-1"
                 >
                   <Bluetooth className="h-4 w-4 mr-2" />
-                  {isConnecting ? 'Connecting...' : 'Connect Device'}
+                  {isConnecting ? "Connecting..." : "Connect Device"}
                 </Button>
               ) : (
-                <Button 
-                  onClick={disconnect} 
+                <Button
+                  onClick={disconnect}
                   variant="outline"
                   className="flex-1"
                 >
@@ -154,7 +171,9 @@ export default function DeviceConnection() {
                 <div>
                   <CardTitle>Raw Sensor Reading (Debug)</CardTitle>
                   <CardDescription>
-                    Light level from photoresistor. Eye open: 250-290, Eye closed: 160-180. A blink is counted when the sensor transitions from open to closed state.
+                    Light level from photoresistor. Eye open: 1800–2000, Eye
+                    closed: 1500–1700. A blink is counted when the sensor
+                    transitions from open to closed state.
                   </CardDescription>
                 </div>
               </div>
@@ -190,7 +209,8 @@ export default function DeviceConnection() {
                 </Label>
               </div>
               <p className="text-xs text-muted-foreground ml-6">
-                Automatically find the first characteristic that supports notifications
+                Automatically find the first characteristic that supports
+                notifications
               </p>
             </div>
 
@@ -226,7 +246,9 @@ export default function DeviceConnection() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="characteristicUUID">Characteristic UUID (optional)</Label>
+              <Label htmlFor="characteristicUUID">
+                Characteristic UUID (optional)
+              </Label>
               <Input
                 id="characteristicUUID"
                 placeholder="e.g., 6e400003-b5a3-f393-e0a9-e50e24dcca9e"
@@ -245,17 +267,28 @@ export default function DeviceConnection() {
           </CardHeader>
           <CardContent className="space-y-3 text-sm text-muted-foreground">
             <p>
-              The Eye-R smart glasses use a photoresistor to measure light levels near your eye. Based on calibrated thresholds:
+              The Eye-R smart glasses use a photoresistor to measure light
+              levels near your eye. Based on calibrated thresholds:
             </p>
             <ul className="list-disc list-inside space-y-1 ml-2">
-              <li><strong>Eye open:</strong> Light level 250-290 (higher ambient light)</li>
-              <li><strong>Eye closed:</strong> Light level 160-180 (lower light when eyelid blocks sensor)</li>
+              <li>
+                <strong>Eye open:</strong> Light level 1800–2000 (higher ambient
+                light)
+              </li>
+              <li>
+                <strong>Eye closed:</strong> Light level 1500–1700 (lower light
+                when eyelid blocks sensor)
+              </li>
             </ul>
             <p>
-              A blink is counted when the sensor reading transitions from the open state to the closed state. The system tracks blinks over a rolling 60-second window to calculate your current blink rate.
+              A blink is counted when the sensor reading transitions from the
+              open state to the closed state. The system tracks blinks over a
+              rolling 60-second window to calculate your current blink rate.
             </p>
             <p>
-              <strong>Note:</strong> The blink counter shows the total number of blinks detected in the last 60 seconds, not blinks per minute averaged over time.
+              <strong>Note:</strong> The blink counter shows the total number of
+              blinks detected in the last 60 seconds, not blinks per minute
+              averaged over time.
             </p>
           </CardContent>
         </Card>

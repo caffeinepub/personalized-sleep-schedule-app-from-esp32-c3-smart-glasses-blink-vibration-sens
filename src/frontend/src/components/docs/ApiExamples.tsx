@@ -1,8 +1,14 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Code, Copy, CheckCheck } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CheckCheck, Code, Copy } from "lucide-react";
+import { useState } from "react";
 
 export default function ApiExamples() {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -15,8 +21,8 @@ export default function ApiExamples() {
 
   const examples = [
     {
-      title: 'Record Blink Rate',
-      description: 'Submit a blink rate measurement from your ESP32-C3 device',
+      title: "Record Blink Rate",
+      description: "Submit a blink rate measurement from your ESP32-C3 device",
       code: `// JavaScript/TypeScript example
 const deviceId = "glasses-001";
 const blinkRate = 15n; // 15 blinks per minute (bigint)
@@ -30,8 +36,8 @@ await actor.recordBlinkRate(deviceId, blinkRate);`,
   }'`,
     },
     {
-      title: 'Record Vibration Event',
-      description: 'Submit a vibration sensor trigger event',
+      title: "Record Vibration Event",
+      description: "Submit a vibration sensor trigger event",
       code: `// JavaScript/TypeScript example
 const deviceId = "glasses-001";
 
@@ -43,8 +49,8 @@ await actor.recordVibrationEvent(deviceId);`,
   }'`,
     },
     {
-      title: 'Query Blink Rates',
-      description: 'Retrieve blink rate data for a time range',
+      title: "Query Blink Rates",
+      description: "Retrieve blink rate data for a time range",
       code: `// JavaScript/TypeScript example
 const deviceId = "glasses-001";
 const startTime = BigInt(Date.now() - 24*60*60*1000) * 1_000_000n;
@@ -62,7 +68,7 @@ const data = await actor.getBlinkRatesInTimeRange(
   return (
     <div className="space-y-6">
       {examples.map((example, index) => (
-        <Card key={index}>
+        <Card key={example.title}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Code className="h-5 w-5" />

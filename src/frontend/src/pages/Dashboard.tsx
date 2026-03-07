@@ -1,17 +1,27 @@
-import { useState, useEffect, useRef } from 'react';
-import { useDeviceId } from '../hooks/useDeviceId';
-import { useBluetooth } from '../contexts/BluetoothContext';
-import { useLocalBlinkHistory } from '../hooks/useLocalBlinkHistory';
-import { useRollingBlinkRateAverage5Min } from '../hooks/useRollingBlinkRateAverage5Min';
-import DeviceSelector from '../components/device/DeviceSelector';
-import TimeRangePicker, { TimeRange } from '../components/time/TimeRangePicker';
-import BlinkRateChart from '../components/charts/BlinkRateChart';
-import SleepScheduleCard from '../components/recommendation/SleepScheduleCard';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Activity, HardDrive } from 'lucide-react';
-import { deriveAlertnessState, getSchedulePlanForState, type AlertnessStateInfo, type SchedulePlan } from '../utils/personalizedSleepSchedule';
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { Activity, HardDrive } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import BlinkRateChart from "../components/charts/BlinkRateChart";
+import type { LightLevelDataPoint } from "../components/charts/BlinkRateChart";
+import ActuationLatencyCard from "../components/device/ActuationLatencyCard";
+import DeviceSelector from "../components/device/DeviceSelector";
+import SleepScheduleCard from "../components/recommendation/SleepScheduleCard";
+import TimeRangePicker, {
+  type TimeRange,
+} from "../components/time/TimeRangePicker";
+import { useBluetooth } from "../contexts/BluetoothContext";
+import { useDeviceId } from "../hooks/useDeviceId";
+import { useLocalBlinkHistory } from "../hooks/useLocalBlinkHistory";
+import { useRollingBlinkRateAverage5Min } from "../hooks/useRollingBlinkRateAverage5Min";
+import { useRollingLatencyAverage5Min } from "../hooks/useRollingLatencyAverage5Min";
+import {
+  type AlertnessStateInfo,
+  type SchedulePlan,
+  deriveAlertnessState,
+  getSchedulePlanForState,
+} from "../utils/personalizedSleepSchedule";
 
 interface CapturedScheduleState {
   stateInfo: AlertnessStateInfo;
@@ -20,33 +30,58 @@ interface CapturedScheduleState {
   capturedAt: number;
 }
 
+const MAX_LIGHT_LEVEL_POINTS = 100;
+
 export default function Dashboard() {
   const { deviceId, setDeviceId, isValid } = useDeviceId();
-  const { connectionState, latestReading, setOnBlinkRateChange } = useBluetooth();
-  
+  const {
+    connectionState,
+    latestReading,
+    setOnBlinkRateChange,
+    setOnLightLevelChange,
+    setOnLatencyChange,
+  } = useBluetooth();
+
   const [currentBlinkRate, setCurrentBlinkRate] = useState<number | null>(null);
   const [blinkHistory, setBlinkHistory] = useState<number[]>([]);
+  const [lightLevelHistory, setLightLevelHistory] = useState<
+    LightLevelDataPoint[]
+  >([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const { history: persistedHistory, addDataPoint: addPersistedDataPoint, lastSaveTime, totalPoints } = useLocalBlinkHistory();
-  
-  // 5-minute rolling average hook
-  const { 
-    rollingAverage, 
-    hasRecentData, 
-    dataPointCount, 
-    addDataPoint: addRollingDataPoint 
+  const {
+    history: persistedHistory,
+    addDataPoint: addPersistedDataPoint,
+    lastSaveTime,
+    totalPoints,
+  } = useLocalBlinkHistory();
+
+  // 5-minute rolling average hook (blink rate)
+  const {
+    rollingAverage,
+    hasRecentData,
+    dataPointCount,
+    addDataPoint: addRollingDataPoint,
   } = useRollingBlinkRateAverage5Min();
 
+  // 5-minute rolling average of LAT values from ESP32
+  const {
+    rollingAverageFormatted: latRollingAvgFormatted,
+    hasRecentData: latHasRecentData,
+    dataPointCount: latDataPointCount,
+    addLatencyPoint,
+  } = useRollingLatencyAverage5Min();
+
   // Time range for historical analysis
-  const [timeRange, setTimeRange] = useState<TimeRange>('24h');
+  const [timeRange, setTimeRange] = useState<TimeRange>("24h");
 
   // Captured schedule state (set only on button click)
-  const [capturedSchedule, setCapturedSchedule] = useState<CapturedScheduleState | null>(null);
+  const [capturedSchedule, setCapturedSchedule] =
+    useState<CapturedScheduleState | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
 
   // Current live state (updates continuously)
-  const currentStateInfo = hasRecentData 
+  const currentStateInfo = hasRecentData
     ? deriveAlertnessState(rollingAverage)
     : null;
 
@@ -55,7 +90,6 @@ export default function Dashboard() {
 
     setIsGenerating(true);
 
-    // Capture the current state at this moment
     const stateInfo = currentStateInfo;
     const plan = getSchedulePlanForState(stateInfo.state);
 
@@ -74,27 +108,47 @@ export default function Dashboard() {
   useEffect(() => {
     setOnBlinkRateChange((blinkRate: number) => {
       setCurrentBlinkRate(blinkRate);
-      
+
       // Add to rolling average (5-minute window)
       addRollingDataPoint(blinkRate);
-      
+
       // Add to persisted history (localStorage)
       addPersistedDataPoint(blinkRate);
-      
+
       // Add to in-memory history for visualization
-      setBlinkHistory(prev => {
+      setBlinkHistory((prev) => {
         const updated = [...prev, blinkRate];
-        return updated.slice(-100); // Keep last 100 readings
+        return updated.slice(-100);
       });
     });
   }, [setOnBlinkRateChange, addRollingDataPoint, addPersistedDataPoint]);
 
-  // Draw simple chart
+  // Set up the light level change handler (VAL: field from ESP32)
+  useEffect(() => {
+    setOnLightLevelChange((value: number) => {
+      setLightLevelHistory((prev) => {
+        const updated: LightLevelDataPoint[] = [
+          ...prev,
+          { timestamp: Date.now(), value },
+        ];
+        return updated.slice(-MAX_LIGHT_LEVEL_POINTS);
+      });
+    });
+  }, [setOnLightLevelChange]);
+
+  // Subscribe to LAT: values for the 5-min rolling average
+  useEffect(() => {
+    setOnLatencyChange((latency: number) => {
+      addLatencyPoint(latency);
+    });
+  }, [setOnLatencyChange, addLatencyPoint]);
+
+  // Draw simple blink rate chart
   useEffect(() => {
     if (!canvasRef.current || blinkHistory.length === 0) return;
 
     const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
     const width = canvas.width;
@@ -107,14 +161,19 @@ export default function Dashboard() {
     const min = Math.min(...blinkHistory, 0);
     const range = max - min || 1;
 
-    ctx.strokeStyle = 'oklch(0.65 0.15 200)';
+    ctx.strokeStyle = "oklch(0.65 0.15 200)";
     ctx.lineWidth = 2;
     ctx.beginPath();
 
     blinkHistory.forEach((rate, index) => {
-      const x = padding + (index / (blinkHistory.length - 1 || 1)) * (width - 2 * padding);
-      const y = padding + (height - 2 * padding) - ((rate - min) / range) * (height - 2 * padding);
-      
+      const x =
+        padding +
+        (index / (blinkHistory.length - 1 || 1)) * (width - 2 * padding);
+      const y =
+        padding +
+        (height - 2 * padding) -
+        ((rate - min) / range) * (height - 2 * padding);
+
       if (index === 0) {
         ctx.moveTo(x, y);
       } else {
@@ -132,30 +191,37 @@ export default function Dashboard() {
         <div className="space-y-2">
           <h1 className="text-4xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-muted-foreground">
-            Monitor your real-time blink rate and get personalized sleep recommendations
+            Monitor your real-time blink rate and get personalized sleep
+            recommendations
           </p>
         </div>
 
         {/* Device Selector */}
         {!isValid && (
-          <DeviceSelector deviceId={deviceId} onDeviceIdChange={setDeviceId} isValid={isValid} />
+          <DeviceSelector
+            deviceId={deviceId}
+            onDeviceIdChange={setDeviceId}
+            isValid={isValid}
+          />
         )}
 
-        {/* Live Metrics */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Live Metrics — 4-column grid on large screens */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Current Blink Rate</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Current Blink Rate
+              </CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {currentBlinkRate !== null ? currentBlinkRate : '--'}
+                {currentBlinkRate !== null ? currentBlinkRate : "--"}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Blinks counted (last 60s)
               </p>
-              {connectionState === 'connected' && (
+              {connectionState === "connected" && (
                 <Badge variant="outline" className="mt-2">
                   Live
                 </Badge>
@@ -163,43 +229,56 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card data-ocid="rolling_avg_lat.card">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">5-Min Rolling Avg</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                5-Min Rolling Average
+              </CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {hasRecentData ? rollingAverage.toFixed(1) : '--'}
+                {latHasRecentData ? `${latRollingAvgFormatted}s` : "--"}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Blinks/min ({dataPointCount} readings)
+                Mean LAT over 300s ({latDataPointCount} readings)
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Local Storage</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Local Storage
+              </CardTitle>
               <HardDrive className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{totalPoints}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                {lastSaveTime ? `Last saved: ${new Date(lastSaveTime).toLocaleTimeString()}` : 'No data saved yet'}
+                {lastSaveTime
+                  ? `Last saved: ${new Date(lastSaveTime).toLocaleTimeString()}`
+                  : "No data saved yet"}
               </p>
             </CardContent>
           </Card>
+
+          {/* Actuation Latency / Drowsiness Status — reads LAT: field directly from BluetoothContext */}
+          <ActuationLatencyCard />
         </div>
 
         {/* Debug Info */}
         {latestReading && (
           <Card className="bg-muted/30">
             <CardHeader>
-              <CardTitle className="text-sm font-medium">Raw Sensor Reading (Debug)</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Raw Sensor Reading (Debug)
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <code className="text-xs text-muted-foreground">{latestReading}</code>
+              <code className="text-xs text-muted-foreground">
+                {latestReading}
+              </code>
             </CardContent>
           </Card>
         )}
@@ -219,7 +298,16 @@ export default function Dashboard() {
 
         <Separator />
 
-        {/* Session Chart */}
+        {/* Real-time Light Level Chart (VAL: from ESP32) */}
+        {lightLevelHistory.length > 0 && (
+          <BlinkRateChart
+            data={[]}
+            title="Real-time Light Level (VAL)"
+            lightLevelData={lightLevelHistory}
+          />
+        )}
+
+        {/* Session Blink Rate Chart */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -249,9 +337,9 @@ export default function Dashboard() {
             <h2 className="text-2xl font-bold">Historical Data</h2>
             <TimeRangePicker value={timeRange} onChange={setTimeRange} />
           </div>
-          
-          <BlinkRateChart 
-            data={persistedHistory} 
+
+          <BlinkRateChart
+            data={persistedHistory}
             title="Stored Blink Rate History (Blinks/min)"
           />
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef } from "react";
 
 export function useBlinkSummaryFlush(_deviceId: string) {
   // Deprecated: No longer flushes to backend

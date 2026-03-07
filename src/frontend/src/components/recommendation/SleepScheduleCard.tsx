@@ -1,9 +1,19 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Brain, Sparkles, Moon, AlertCircle } from 'lucide-react';
-import { type AlertnessStateInfo, type SchedulePlan, type AlertnessState } from '../../utils/personalizedSleepSchedule';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { AlertCircle, Brain, Moon, Sparkles } from "lucide-react";
+import type {
+  AlertnessState,
+  AlertnessStateInfo,
+  SchedulePlan,
+} from "../../utils/personalizedSleepSchedule";
 
 interface CapturedScheduleState {
   stateInfo: AlertnessStateInfo;
@@ -35,11 +45,11 @@ export default function SleepScheduleCard({
 
   const getStateIcon = (state: AlertnessState) => {
     switch (state) {
-      case 'high-alertness':
+      case "high-alertness":
         return <Sparkles className="h-5 w-5 text-green-600" />;
-      case 'normal':
+      case "normal":
         return <Brain className="h-5 w-5 text-blue-600" />;
-      case 'drowsy':
+      case "drowsy":
         return <Moon className="h-5 w-5 text-orange-600" />;
       default:
         return <AlertCircle className="h-5 w-5 text-gray-600" />;
@@ -48,27 +58,27 @@ export default function SleepScheduleCard({
 
   const getStateBadgeVariant = (state: AlertnessState) => {
     switch (state) {
-      case 'high-alertness':
-        return 'default';
-      case 'normal':
-        return 'secondary';
-      case 'drowsy':
-        return 'destructive';
+      case "high-alertness":
+        return "default";
+      case "normal":
+        return "secondary";
+      case "drowsy":
+        return "destructive";
       default:
-        return 'outline';
+        return "outline";
     }
   };
 
   const getStateDisplayName = (state: AlertnessState): string => {
     switch (state) {
-      case 'high-alertness':
-        return 'High Alertness';
-      case 'normal':
-        return 'Normal';
-      case 'drowsy':
-        return 'Drowsy';
+      case "high-alertness":
+        return "High Alertness";
+      case "normal":
+        return "Normal";
+      case "drowsy":
+        return "Drowsy";
       default:
-        return 'Unknown';
+        return "Unknown";
     }
   };
 
@@ -80,7 +90,8 @@ export default function SleepScheduleCard({
           Personalized Sleep Schedule
         </CardTitle>
         <CardDescription>
-          Generate recommendations based on blinks counted (5-minute rolling average)
+          Generate recommendations based on blinks counted (5-minute rolling
+          average)
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -94,7 +105,9 @@ export default function SleepScheduleCard({
               <div className="flex items-center gap-3">
                 {getStateIcon(currentStateInfo.state)}
                 <div>
-                  <p className="font-semibold text-foreground">{getStateDisplayName(currentStateInfo.state)}</p>
+                  <p className="font-semibold text-foreground">
+                    {getStateDisplayName(currentStateInfo.state)}
+                  </p>
                   <p className="text-sm text-muted-foreground">
                     Rolling Avg: {currentRollingAverage.toFixed(1)} blinks/min
                   </p>
@@ -107,7 +120,8 @@ export default function SleepScheduleCard({
           ) : (
             <div className="p-4 bg-muted/30 rounded-lg text-center">
               <p className="text-sm text-muted-foreground">
-                No recent data available. Connect your device to start monitoring.
+                No recent data available. Connect your device to start
+                monitoring.
               </p>
             </div>
           )}
@@ -169,7 +183,8 @@ export default function SleepScheduleCard({
                       {getStateDisplayName(capturedSchedule.stateInfo.state)}
                     </p>
                     <p className="text-sm text-muted-foreground">
-                      Captured at {capturedSchedule.rollingAverage.toFixed(1)} blinks/min
+                      Captured at {capturedSchedule.rollingAverage.toFixed(1)}{" "}
+                      blinks/min
                     </p>
                   </div>
                 </div>
@@ -179,8 +194,8 @@ export default function SleepScheduleCard({
                     {capturedSchedule.plan.title}
                   </p>
                   <ul className="space-y-1 text-sm text-muted-foreground">
-                    {capturedSchedule.plan.items.map((item, idx) => (
-                      <li key={idx} className="flex items-start gap-2">
+                    {capturedSchedule.plan.items.map((item) => (
+                      <li key={item} className="flex items-start gap-2">
                         <span className="text-primary mt-0.5">•</span>
                         <span>{item}</span>
                       </li>

@@ -1,16 +1,35 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { normalizeUUID, formatUUID } from '../utils/bleUuid';
-import { 
-  NUS_SERVICE_UUID, 
-  NUS_TX_CHARACTERISTIC_UUID,
+import { useQueryClient } from "@tanstack/react-query";
+import type React from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { useActor } from "../hooks/useActor";
+import { useLocalBlinkHistory } from "../hooks/useLocalBlinkHistory";
+import {
+  BLINK_MAX,
+  BLINK_MIN,
   CCCD_UUID,
-  parseNusBlinkRate,
+  EYES_CLOSED_MAX,
+  EYES_OPEN_MAX,
+  EYES_OPEN_MIN,
+  NUS_SERVICE_UUID,
+  NUS_TX_CHARACTERISTIC_UUID,
+  isEsp32PipeFormat,
   parseBlinkRateFromText,
+  parseEsp32PipeFormat,
+  parseEyeStateFromLight,
+  parseEyeStateToken,
   parseHeartRateBlinkRate,
-  parseEyeStateToken
-} from '../utils/bleNus';
+  parseNusBlinkRate,
+} from "../utils/bleNus";
+import { formatUUID, normalizeUUID } from "../utils/bleUuid";
 
-type ConnectionState = 'disconnected' | 'connecting' | 'connected';
+type ConnectionState = "disconnected" | "connecting" | "connected";
 
 interface BluetoothContextValue {
   connectionState: ConnectionState;
@@ -21,6 +40,17 @@ interface BluetoothContextValue {
   onBlinkRateChange?: (blinkRate: number) => void;
   setOnBlinkRateChange: (callback: (blinkRate: number) => void) => void;
   latestReading: string | null;
+  /**
+   * Most recent actuation latency as a float (seconds) parsed from LAT: field.
+   * undefined if not yet received. Display with toFixed(2) for 0.00 format.
+   */
+  actuationLatency: number | undefined;
+  /** Sends a vibration trigger BLE command and records actuation latency on the backend. */
+  triggerVibration: () => Promise<void>;
+  /** Register a callback that fires whenever a new VAL: light level reading arrives */
+  setOnLightLevelChange: (callback: (value: number) => void) => void;
+  /** Register a callback that fires whenever a new LAT: latency value arrives (float, seconds) */
+  setOnLatencyChange: (callback: (latency: number) => void) => void;
 }
 
 interface ConnectOptions {
@@ -34,39 +64,46 @@ interface BlinkTimestamp {
   timestamp: number;
 }
 
-const BluetoothContext = createContext<BluetoothContextValue | undefined>(undefined);
+const BluetoothContext = createContext<BluetoothContextValue | undefined>(
+  undefined,
+);
 
 const MIN_CONNECTION_INTERVAL_MS = 2000;
 const MTU_EXCHANGE_DELAY_MS = 500;
 
-// Calibrated eye state thresholds based on observed light levels
-const EYE_OPEN_THRESHOLD = 220; // Values >= 220 indicate eye is open (observed range: 250-290)
-const EYE_CLOSED_THRESHOLD = 200; // Values <= 200 indicate eye is closed (observed range: 160-180)
 const ROLLING_WINDOW_MS = 60000; // 60 seconds
 
-type EyeState = 'open' | 'closed' | 'unknown';
-
-function toServiceString(uuid: string | number): string {
-  if (typeof uuid === 'number') {
-    const hex = uuid.toString(16).padStart(4, '0');
-    return `0000${hex}-0000-1000-8000-00805f9b34fb`;
-  }
-  return uuid;
-}
+type EyeState = "open" | "closed" | "unknown";
 
 export function BluetoothProvider({ children }: { children: React.ReactNode }) {
-  const [connectionState, setConnectionState] = useState<ConnectionState>('disconnected');
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>("disconnected");
   const [error, setError] = useState<string | null>(null);
-  const [isSupported] = useState(() => 'bluetooth' in navigator && navigator.bluetooth !== undefined);
+  const [isSupported] = useState(
+    () => "bluetooth" in navigator && navigator.bluetooth !== undefined,
+  );
   const [latestReading, setLatestReading] = useState<string | null>(null);
-  
+  const [actuationLatency, setActuationLatency] = useState<number | undefined>(
+    undefined,
+  );
+
   const deviceRef = useRef<BluetoothDevice | null>(null);
-  const characteristicRef = useRef<BluetoothRemoteGATTCharacteristic | null>(null);
+  const characteristicRef = useRef<BluetoothRemoteGATTCharacteristic | null>(
+    null,
+  );
   const serverRef = useRef<BluetoothRemoteGATTServer | null>(null);
   const disconnectListenerRef = useRef<((event: Event) => void) | null>(null);
-  const onBlinkRateChangeRef = useRef<((blinkRate: number) => void) | undefined>(undefined);
+  const onBlinkRateChangeRef = useRef<
+    ((blinkRate: number) => void) | undefined
+  >(undefined);
+  const onLightLevelChangeRef = useRef<((value: number) => void) | undefined>(
+    undefined,
+  );
+  const onLatencyChangeRef = useRef<((latency: number) => void) | undefined>(
+    undefined,
+  );
   const notificationsEnabledRef = useRef<boolean>(false);
-  
+
   const isConnectingRef = useRef(false);
   const lastAttemptStartRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -74,131 +111,253 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
 
   // Blink detection state with calibrated eye state tracking
   const blinkTimestampsRef = useRef<BlinkTimestamp[]>([]);
-  const currentEyeStateRef = useRef<EyeState>('unknown');
+  const currentEyeStateRef = useRef<EyeState>("unknown");
 
-  const setOnBlinkRateChange = useCallback((callback: (blinkRate: number) => void) => {
-    onBlinkRateChangeRef.current = callback;
+  /**
+   * Debounce ref for blink counting via the numeric VAL path.
+   * True while VAL is currently below 600 (inside a blink event).
+   */
+  const isInsideBlinkEventRef = useRef<boolean>(false);
+
+  // Local blink history for persisting eye state events
+  const { addDataPoint } = useLocalBlinkHistory();
+
+  // Backend actor for latency recording
+  const { actor } = useActor();
+  const actorRef = useRef(actor);
+  useEffect(() => {
+    actorRef.current = actor;
+  }, [actor]);
+
+  const queryClient = useQueryClient();
+
+  const setOnBlinkRateChange = useCallback(
+    (callback: (blinkRate: number) => void) => {
+      onBlinkRateChangeRef.current = callback;
+    },
+    [],
+  );
+
+  const setOnLightLevelChange = useCallback(
+    (callback: (value: number) => void) => {
+      onLightLevelChangeRef.current = callback;
+    },
+    [],
+  );
+
+  const setOnLatencyChange = useCallback(
+    (callback: (latency: number) => void) => {
+      onLatencyChangeRef.current = callback;
+    },
+    [],
+  );
+
+  const classifyEyeState = useCallback((lightLevel: number): EyeState => {
+    if (lightLevel < EYES_CLOSED_MAX) {
+      return "closed";
+    }
+    if (lightLevel >= EYES_OPEN_MIN && lightLevel <= EYES_OPEN_MAX) {
+      return "open";
+    }
+    if (lightLevel >= BLINK_MIN && lightLevel <= BLINK_MAX) {
+      return "closed";
+    }
+    return "unknown";
   }, []);
 
-  const classifyEyeState = (lightLevel: number): EyeState => {
-    if (lightLevel >= EYE_OPEN_THRESHOLD) {
-      return 'open';
-    } else if (lightLevel <= EYE_CLOSED_THRESHOLD) {
-      return 'closed';
-    } else {
-      return 'unknown';
-    }
-  };
+  const handleCharacteristicValueChanged = useCallback(
+    (event: Event) => {
+      const target = event.target as BluetoothRemoteGATTCharacteristic;
+      const value = target.value;
 
-  const handleCharacteristicValueChanged = useCallback((event: Event) => {
-    const target = event.target as BluetoothRemoteGATTCharacteristic;
-    const value = target.value;
-    
-    if (!value) return;
+      if (!value) return;
 
-    // Decode as UTF-8 text for raw display
-    let decodedText = '';
-    try {
-      const decoder = new TextDecoder('utf-8');
-      decodedText = decoder.decode(value);
-      setLatestReading(decodedText.trim());
-    } catch (err) {
-      console.warn('Failed to decode as UTF-8 text:', err);
-    }
-
-    const now = Date.now();
-    let newEyeState: EyeState = 'unknown';
-    let blinkDetected = false;
-
-    // First, check for eye-state tokens (e.g., "close", "open")
-    if (decodedText) {
-      const eyeStateToken = parseEyeStateToken(decodedText);
-      
-      if (eyeStateToken === 'close') {
-        newEyeState = 'closed';
-        const previousEyeState = currentEyeStateRef.current;
-        
-        // Count a blink on transition to closed (from open or unknown)
-        // De-duplication: only count if we weren't already in closed state
-        if (previousEyeState !== 'closed') {
-          blinkTimestampsRef.current.push({ timestamp: now });
-          blinkDetected = true;
-          console.log(`Blink detected! Token: "close" (${previousEyeState}→closed transition), Total blinks in window: ${blinkTimestampsRef.current.length}`);
-        }
-      } else if (eyeStateToken === 'open') {
-        newEyeState = 'open';
+      // Decode as UTF-8 text for raw display
+      let decodedText = "";
+      try {
+        const decoder = new TextDecoder("utf-8");
+        decodedText = decoder.decode(value);
+        setLatestReading(decodedText.trim());
+      } catch (err) {
+        console.warn("Failed to decode as UTF-8 text:", err);
       }
-    }
 
-    // If no token was detected, try parsing numeric light level
-    if (newEyeState === 'unknown') {
-      let rawSensorValue: number | null = null;
-      
+      const now = Date.now();
+
+      // -----------------------------------------------------------------------
+      // ESP32 pipe-delimited format: "LAT:[float]|VAL:[int]"
+      // Handle this format first — it takes priority over legacy parsers.
+      // -----------------------------------------------------------------------
+      if (decodedText && isEsp32PipeFormat(decodedText)) {
+        const parsed = parseEsp32PipeFormat(decodedText);
+
+        // Update actuation latency from LAT: field (float, seconds)
+        if (parsed.latency !== null) {
+          setActuationLatency(parsed.latency);
+          // Fire rolling-average callback with the raw LAT value
+          if (onLatencyChangeRef.current) {
+            onLatencyChangeRef.current(parsed.latency);
+          }
+        }
+
+        // Process VAL: field for blink detection and light level chart
+        if (parsed.value !== null) {
+          const rawSensorValue = parsed.value;
+
+          // Emit light level to chart callback
+          if (onLightLevelChangeRef.current) {
+            onLightLevelChangeRef.current(rawSensorValue);
+          }
+
+          const newEyeState = classifyEyeState(rawSensorValue);
+          const eyeStateLabel = parseEyeStateFromLight(rawSensorValue);
+
+          if (eyeStateLabel !== null) {
+            const currentBlinkCount = blinkTimestampsRef.current.length;
+            addDataPoint(currentBlinkCount, eyeStateLabel);
+          }
+
+          // Blink counting with debounce for the VAL < 600 threshold
+          if (rawSensorValue < EYES_CLOSED_MAX) {
+            if (!isInsideBlinkEventRef.current) {
+              isInsideBlinkEventRef.current = true;
+              blinkTimestampsRef.current.push({ timestamp: now });
+              if (actorRef.current) {
+                actorRef.current.recordEyeClosedTimestamp().catch(() => {});
+              }
+            }
+          } else {
+            isInsideBlinkEventRef.current = false;
+          }
+
+          if (newEyeState !== "unknown") {
+            currentEyeStateRef.current = newEyeState;
+          }
+        }
+
+        // Prune timestamps older than 60 seconds
+        const cutoffTime = now - ROLLING_WINDOW_MS;
+        blinkTimestampsRef.current = blinkTimestampsRef.current.filter(
+          (blink) => blink.timestamp >= cutoffTime,
+        );
+
+        // Emit blink rate
+        if (onBlinkRateChangeRef.current) {
+          onBlinkRateChangeRef.current(blinkTimestampsRef.current.length);
+        }
+
+        return; // Done — skip legacy parsers
+      }
+
+      // -----------------------------------------------------------------------
+      // Legacy parsing path (non-pipe-delimited formats)
+      // -----------------------------------------------------------------------
+
+      let newEyeState: EyeState = "unknown";
+
+      // First, check for eye-state tokens (e.g., "close", "open")
       if (decodedText) {
-        rawSensorValue = parseBlinkRateFromText(decodedText);
-      }
+        const eyeStateToken = parseEyeStateToken(decodedText);
 
-      if (rawSensorValue === null) {
-        rawSensorValue = parseNusBlinkRate(value);
-      }
-      
-      if (rawSensorValue === null) {
-        rawSensorValue = parseHeartRateBlinkRate(value);
-      }
+        if (eyeStateToken === "close") {
+          newEyeState = "closed";
+          const previousEyeState = currentEyeStateRef.current;
 
-      // Only process numeric values if we got one
-      if (rawSensorValue !== null) {
-        newEyeState = classifyEyeState(rawSensorValue);
-        const previousEyeState = currentEyeStateRef.current;
-        
-        // Count a blink on transition from open to closed (numeric path)
-        if (previousEyeState === 'open' && newEyeState === 'closed') {
-          blinkTimestampsRef.current.push({ timestamp: now });
-          blinkDetected = true;
-          console.log(`Blink detected! Light level: ${rawSensorValue} (open→closed transition), Total blinks in window: ${blinkTimestampsRef.current.length}`);
+          if (previousEyeState !== "closed") {
+            blinkTimestampsRef.current.push({ timestamp: now });
+            if (actorRef.current) {
+              actorRef.current.recordEyeClosedTimestamp().catch(() => {});
+            }
+          }
+        } else if (eyeStateToken === "open") {
+          newEyeState = "open";
         }
       }
-    }
-    
-    // Update current eye state if we determined a new state
-    if (newEyeState !== 'unknown') {
-      currentEyeStateRef.current = newEyeState;
-    }
 
-    // Prune timestamps older than 60 seconds
-    const cutoffTime = now - ROLLING_WINDOW_MS;
-    blinkTimestampsRef.current = blinkTimestampsRef.current.filter(
-      (blink) => blink.timestamp >= cutoffTime
-    );
+      // If no token was detected, try parsing numeric light level
+      if (newEyeState === "unknown") {
+        let rawSensorValue: number | null = null;
 
-    // Calculate blinks per minute (count of blinks in the last 60 seconds)
-    const blinksInWindow = blinkTimestampsRef.current.length;
+        if (decodedText) {
+          rawSensorValue = parseBlinkRateFromText(decodedText);
+        }
 
-    // Emit the computed blink rate
-    if (onBlinkRateChangeRef.current) {
-      onBlinkRateChangeRef.current(blinksInWindow);
-    }
-  }, []);
+        if (rawSensorValue === null) {
+          rawSensorValue = parseNusBlinkRate(value);
+        }
+
+        if (rawSensorValue === null) {
+          rawSensorValue = parseHeartRateBlinkRate(value);
+        }
+
+        if (rawSensorValue !== null) {
+          newEyeState = classifyEyeState(rawSensorValue);
+
+          if (onLightLevelChangeRef.current) {
+            onLightLevelChangeRef.current(rawSensorValue);
+          }
+
+          const eyeStateLabel = parseEyeStateFromLight(rawSensorValue);
+
+          if (eyeStateLabel !== null) {
+            const currentBlinkCount = blinkTimestampsRef.current.length;
+            addDataPoint(currentBlinkCount, eyeStateLabel);
+          }
+
+          if (rawSensorValue < EYES_CLOSED_MAX) {
+            if (!isInsideBlinkEventRef.current) {
+              isInsideBlinkEventRef.current = true;
+              blinkTimestampsRef.current.push({ timestamp: now });
+              if (actorRef.current) {
+                actorRef.current.recordEyeClosedTimestamp().catch(() => {});
+              }
+            }
+          } else {
+            isInsideBlinkEventRef.current = false;
+          }
+        }
+      }
+
+      if (newEyeState !== "unknown") {
+        currentEyeStateRef.current = newEyeState;
+      }
+
+      const cutoffTime = now - ROLLING_WINDOW_MS;
+      blinkTimestampsRef.current = blinkTimestampsRef.current.filter(
+        (blink) => blink.timestamp >= cutoffTime,
+      );
+
+      const blinksInWindow = blinkTimestampsRef.current.length;
+
+      if (onBlinkRateChangeRef.current) {
+        onBlinkRateChangeRef.current(blinksInWindow);
+      }
+    },
+    [addDataPoint, classifyEyeState],
+  );
 
   const cleanupConnection = useCallback(() => {
     if (characteristicRef.current) {
       try {
         characteristicRef.current.stopNotifications().catch(() => {});
         characteristicRef.current.removeEventListener(
-          'characteristicvaluechanged',
-          handleCharacteristicValueChanged as EventListener
+          "characteristicvaluechanged",
+          handleCharacteristicValueChanged as EventListener,
         );
       } catch (err) {
-        console.warn('Error cleaning up characteristic:', err);
+        console.warn("Error cleaning up characteristic:", err);
       }
       characteristicRef.current = null;
     }
 
     if (deviceRef.current && disconnectListenerRef.current) {
       try {
-        deviceRef.current.removeEventListener('gattserverdisconnected', disconnectListenerRef.current);
+        deviceRef.current.removeEventListener(
+          "gattserverdisconnected",
+          disconnectListenerRef.current,
+        );
       } catch (err) {
-        console.warn('Error removing disconnect listener:', err);
+        console.warn("Error removing disconnect listener:", err);
       }
       disconnectListenerRef.current = null;
     }
@@ -207,10 +366,10 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
       try {
         serverRef.current.disconnect();
       } catch (err) {
-        console.warn('Error disconnecting GATT server:', err);
+        console.warn("Error disconnecting GATT server:", err);
       }
     }
-    
+
     serverRef.current = null;
     notificationsEnabledRef.current = false;
   }, [handleCharacteristicValueChanged]);
@@ -220,26 +379,27 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
       abortControllerRef.current.abort();
       abortControllerRef.current = null;
     }
-    
+
     cleanupConnection();
     deviceRef.current = null;
     isConnectingRef.current = false;
-    setConnectionState('disconnected');
+    setConnectionState("disconnected");
     setLatestReading(null);
-    
-    // Reset blink detection state
+
     blinkTimestampsRef.current = [];
-    currentEyeStateRef.current = 'unknown';
+    currentEyeStateRef.current = "unknown";
+    isInsideBlinkEventRef.current = false;
+
+    setActuationLatency(undefined);
   }, [cleanupConnection]);
 
   useEffect(() => {
     const syncInterval = setInterval(() => {
       if (deviceRef.current && serverRef.current) {
         const isActuallyConnected = serverRef.current.connected;
-        
-        if (!isActuallyConnected && connectionState === 'connected') {
-          console.log('GATT connection lost, updating UI state');
-          setConnectionState('disconnected');
+
+        if (!isActuallyConnected && connectionState === "connected") {
+          setConnectionState("disconnected");
           notificationsEnabledRef.current = false;
         }
       }
@@ -248,284 +408,193 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(syncInterval);
   }, [connectionState]);
 
-  const discoverNotifyingCharacteristic = async (
-    server: BluetoothRemoteGATTServer,
-    attemptToken: number
-  ): Promise<BluetoothRemoteGATTCharacteristic> => {
-    console.log('Starting cross-service auto-discovery for notifying characteristics...');
-    
-    if (attemptToken !== attemptTokenRef.current) {
-      throw new Error('Connection attempt was cancelled');
-    }
-    
-    try {
-      const services = await server.getPrimaryServices();
-      console.log(`Found ${services.length} primary services`);
-      
-      for (const service of services) {
-        if (attemptToken !== attemptTokenRef.current) {
-          throw new Error('Connection attempt was cancelled');
-        }
-        
-        try {
-          const characteristics = await service.getCharacteristics();
-          console.log(`Service ${service.uuid}: found ${characteristics.length} characteristics`);
-          
-          for (const char of characteristics) {
-            if (char.properties.notify) {
-              console.log(`Found notifying characteristic: ${char.uuid} in service ${service.uuid}`);
-              return char;
-            }
-          }
-        } catch (err) {
-          console.warn(`Failed to scan characteristics for service ${service.uuid}:`, err);
-          continue;
-        }
-      }
-      
-      throw new Error('No notify-capable characteristic found on this device. Please ensure your ESP32 firmware exposes at least one characteristic with notify property enabled.');
-    } catch (err: any) {
-      if (err.message?.includes('cancelled')) {
-        throw err;
-      }
-      if (err.message?.includes('No notify-capable characteristic')) {
-        throw err;
-      }
-      throw new Error(`Failed to discover services and characteristics: ${err.message || 'Unknown error'}. Please check your device firmware.`);
-    }
-  };
-
-  const enableNotifications = async (
-    characteristic: BluetoothRemoteGATTCharacteristic,
-    attemptToken: number
-  ): Promise<void> => {
-    console.log('Starting notifications on characteristic...');
-    
-    try {
-      await characteristic.startNotifications();
-      console.log('startNotifications() succeeded');
-    } catch (err: any) {
-      throw new Error(`Failed to start notifications: ${err.message || 'Unknown error'}. Please ensure your ESP32 firmware supports notifications on this characteristic.`);
-    }
-
-    if (attemptToken !== attemptTokenRef.current) {
-      throw new Error('Connection attempt was cancelled');
-    }
-
-    characteristic.addEventListener(
-      'characteristicvaluechanged',
-      handleCharacteristicValueChanged as EventListener
-    );
-    console.log('Notification event listener registered');
-
-    try {
-      console.log('Attempting to write to CCCD descriptor (0x2902)...');
-      const cccdDescriptor = await characteristic.getDescriptor(CCCD_UUID);
-      
-      if (attemptToken !== attemptTokenRef.current) {
-        throw new Error('Connection attempt was cancelled');
+  const connect = useCallback(
+    async (options: ConnectOptions = {}) => {
+      if (!isSupported) {
+        setError("Web Bluetooth is not supported in this browser.");
+        return;
       }
 
-      const cccdValue = new Uint8Array([0x01, 0x00]);
-      await cccdDescriptor.writeValue(cccdValue);
-      console.log('CCCD descriptor write succeeded - ESP32 should now detect connection');
-    } catch (cccdErr: any) {
-      console.warn('CCCD descriptor write failed (this may be normal):', cccdErr.message || cccdErr);
-      console.log('Notifications may still work via startNotifications() alone');
-    }
-
-    notificationsEnabledRef.current = true;
-    console.log('Notifications fully enabled');
-  };
-
-  const connect = useCallback(async (options: ConnectOptions) => {
-    const {
-      serviceUUID = NUS_SERVICE_UUID,
-      characteristicUUID = NUS_TX_CHARACTERISTIC_UUID,
-      autoDiscover = true,
-      useCustomProfile = false
-    } = options;
-
-    if (!isSupported || !navigator.bluetooth) {
-      setError('Web Bluetooth is not supported in this browser. Please use a Chromium-based browser like Chrome, Edge, or Opera.');
-      return;
-    }
-
-    if (isConnectingRef.current) {
-      console.log('Connection attempt already in progress, ignoring new request');
-      return;
-    }
-
-    const now = Date.now();
-    const timeSinceLastAttempt = now - lastAttemptStartRef.current;
-    if (timeSinceLastAttempt < MIN_CONNECTION_INTERVAL_MS) {
-      const waitTime = MIN_CONNECTION_INTERVAL_MS - timeSinceLastAttempt;
-      console.log(`Waiting ${waitTime}ms before next connection attempt...`);
-      setConnectionState('connecting');
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-    }
-
-    isConnectingRef.current = true;
-    lastAttemptStartRef.current = Date.now();
-    attemptTokenRef.current += 1;
-    const currentAttemptToken = attemptTokenRef.current;
-
-    const abortController = new AbortController();
-    abortControllerRef.current = abortController;
-
-    setError(null);
-    setConnectionState('connecting');
-    notificationsEnabledRef.current = false;
-
-    // Reset blink detection state on new connection
-    blinkTimestampsRef.current = [];
-    currentEyeStateRef.current = 'unknown';
-
-    const isCustomMode = useCustomProfile || !serviceUUID || serviceUUID.toString().trim() === '';
-    
-    const normalizedServiceUUID = serviceUUID && serviceUUID.toString().trim() !== '' 
-      ? normalizeUUID(serviceUUID) 
-      : undefined;
-    const normalizedCharUUID = characteristicUUID && characteristicUUID.toString().trim() !== ''
-      ? normalizeUUID(characteristicUUID)
-      : undefined;
-
-    try {
-      if (currentAttemptToken !== attemptTokenRef.current) {
-        throw new Error('Connection attempt was cancelled');
+      const now = Date.now();
+      if (isConnectingRef.current) {
+        return;
+      }
+      if (now - lastAttemptStartRef.current < MIN_CONNECTION_INTERVAL_MS) {
+        return;
       }
 
-      let device: BluetoothDevice;
-      
-      if (isCustomMode) {
-        console.log('Using custom/unknown profile mode with acceptAllDevices');
-        const optionalServices: string[] = [NUS_SERVICE_UUID];
-        if (normalizedServiceUUID && normalizedServiceUUID !== NUS_SERVICE_UUID) {
-          optionalServices.push(toServiceString(normalizedServiceUUID));
-        }
-        device = await navigator.bluetooth.requestDevice({
+      isConnectingRef.current = true;
+      lastAttemptStartRef.current = now;
+      const myToken = ++attemptTokenRef.current;
+
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      abortControllerRef.current = new AbortController();
+
+      setConnectionState("connecting");
+      setError(null);
+
+      try {
+        cleanupConnection();
+
+        const characteristicUUID =
+          options.characteristicUUID ?? NUS_TX_CHARACTERISTIC_UUID;
+        const normalizedCharacteristicUUID = normalizeUUID(characteristicUUID);
+
+        const requestOptions: RequestDeviceOptions = {
           acceptAllDevices: true,
-          optionalServices
-        });
-      } else {
-        console.log(`Using known profile mode with service filter: ${formatUUID(normalizedServiceUUID!)}`);
-        const optionalServices: string[] = [];
-        if (normalizedCharUUID) {
-          optionalServices.push(toServiceString(normalizedServiceUUID!));
-        }
-        device = await navigator.bluetooth.requestDevice({
-          filters: [{ services: [toServiceString(normalizedServiceUUID!)] }],
-          optionalServices
-        });
-      }
+          optionalServices: [NUS_SERVICE_UUID],
+        };
 
-      if (currentAttemptToken !== attemptTokenRef.current) {
-        throw new Error('Connection attempt was cancelled');
-      }
+        const device = await navigator.bluetooth!.requestDevice(requestOptions);
 
-      console.log(`Device selected: ${device.name || 'Unknown'}`);
-      deviceRef.current = device;
-
-      const disconnectListener = () => {
-        console.log('Device disconnected');
-        disconnect();
-      };
-      device.addEventListener('gattserverdisconnected', disconnectListener);
-      disconnectListenerRef.current = disconnectListener;
-
-      console.log('Connecting to GATT server...');
-      const server = await device.gatt!.connect();
-      serverRef.current = server;
-      console.log('GATT server connected');
-
-      if (currentAttemptToken !== attemptTokenRef.current) {
-        throw new Error('Connection attempt was cancelled');
-      }
-
-      console.log(`Waiting ${MTU_EXCHANGE_DELAY_MS}ms for MTU exchange...`);
-      await new Promise(resolve => setTimeout(resolve, MTU_EXCHANGE_DELAY_MS));
-
-      if (currentAttemptToken !== attemptTokenRef.current) {
-        throw new Error('Connection attempt was cancelled');
-      }
-
-      let characteristic: BluetoothRemoteGATTCharacteristic;
-
-      if (autoDiscover) {
-        characteristic = await discoverNotifyingCharacteristic(server, currentAttemptToken);
-      } else {
-        if (!normalizedServiceUUID || !normalizedCharUUID) {
-          throw new Error('Service UUID and Characteristic UUID are required when auto-discovery is disabled');
+        if (myToken !== attemptTokenRef.current) {
+          isConnectingRef.current = false;
+          return;
         }
 
-        console.log(`Getting service ${formatUUID(normalizedServiceUUID)}...`);
-        const service = await server.getPrimaryService(toServiceString(normalizedServiceUUID));
-        
-        if (currentAttemptToken !== attemptTokenRef.current) {
-          throw new Error('Connection attempt was cancelled');
+        deviceRef.current = device;
+
+        const onDisconnect = () => {
+          if (myToken !== attemptTokenRef.current) return;
+          setConnectionState("disconnected");
+          notificationsEnabledRef.current = false;
+        };
+        disconnectListenerRef.current = onDisconnect;
+        device.addEventListener("gattserverdisconnected", onDisconnect);
+
+        const server = await device.gatt!.connect();
+
+        if (myToken !== attemptTokenRef.current) {
+          server.disconnect();
+          isConnectingRef.current = false;
+          return;
         }
 
-        console.log(`Getting characteristic ${formatUUID(normalizedCharUUID)}...`);
-        characteristic = await service.getCharacteristic(toServiceString(normalizedCharUUID));
+        serverRef.current = server;
+
+        await new Promise((resolve) =>
+          setTimeout(resolve, MTU_EXCHANGE_DELAY_MS),
+        );
+
+        if (myToken !== attemptTokenRef.current) {
+          server.disconnect();
+          isConnectingRef.current = false;
+          return;
+        }
+
+        let service: BluetoothRemoteGATTService;
+        try {
+          service = await server.getPrimaryService(NUS_SERVICE_UUID);
+        } catch (_err) {
+          throw new Error(
+            `NUS Service (${NUS_SERVICE_UUID}) not found on device. Make sure the device is advertising the correct service.`,
+          );
+        }
+
+        let characteristic: BluetoothRemoteGATTCharacteristic;
+        try {
+          characteristic = await service.getCharacteristic(
+            normalizedCharacteristicUUID,
+          );
+        } catch (_err) {
+          throw new Error(
+            `Characteristic ${formatUUID(characteristicUUID)} not found in NUS service.`,
+          );
+        }
+
+        characteristicRef.current = characteristic;
+
+        characteristic.addEventListener(
+          "characteristicvaluechanged",
+          handleCharacteristicValueChanged as EventListener,
+        );
+
+        await characteristic.startNotifications();
+        notificationsEnabledRef.current = true;
+
+        // Attempt to enable CCCD (0x2902) descriptor for notifications
+        try {
+          const cccdDescriptor = await (characteristic as any).getDescriptor(
+            CCCD_UUID,
+          );
+          if (cccdDescriptor) {
+            const enableNotifications = new Uint8Array([0x01, 0x00]);
+            await cccdDescriptor.writeValue(enableNotifications);
+          }
+        } catch (_cccdErr) {
+          // CCCD write is optional; startNotifications() may handle it automatically
+        }
+
+        if (myToken !== attemptTokenRef.current) {
+          server.disconnect();
+          isConnectingRef.current = false;
+          return;
+        }
+
+        setConnectionState("connected");
+        isConnectingRef.current = false;
+      } catch (err: any) {
+        if (myToken !== attemptTokenRef.current) {
+          isConnectingRef.current = false;
+          return;
+        }
+
+        const errorMessage = err?.message || "Unknown error occurred";
+
+        if (
+          errorMessage.includes("User cancelled") ||
+          errorMessage.includes("chooser")
+        ) {
+          setError(null);
+        } else {
+          setError(errorMessage);
+        }
+
+        setConnectionState("disconnected");
+        isConnectingRef.current = false;
+        cleanupConnection();
       }
+    },
+    [isSupported, cleanupConnection, handleCharacteristicValueChanged],
+  );
 
-      if (currentAttemptToken !== attemptTokenRef.current) {
-        throw new Error('Connection attempt was cancelled');
-      }
-
-      characteristicRef.current = characteristic;
-      console.log(`Using characteristic: ${characteristic.uuid}`);
-
-      await enableNotifications(characteristic, currentAttemptToken);
-
-      if (currentAttemptToken !== attemptTokenRef.current) {
-        throw new Error('Connection attempt was cancelled');
-      }
-
-      setConnectionState('connected');
-      console.log('Connection fully established with notifications enabled');
-
-    } catch (err: any) {
-      console.error('Connection error:', err);
-      
-      if (err.message?.includes('cancelled')) {
-        console.log('Connection attempt was cancelled by user or new attempt');
-      } else {
-        setError(err.message || 'Failed to connect to device');
-      }
-      
-      cleanupConnection();
-      deviceRef.current = null;
-      setConnectionState('disconnected');
-    } finally {
-      isConnectingRef.current = false;
-      if (abortControllerRef.current === abortController) {
-        abortControllerRef.current = null;
-      }
+  const triggerVibration = useCallback(async () => {
+    if (!actorRef.current) return;
+    try {
+      await actorRef.current.triggerVibrationAndCalculateLatency();
+      queryClient.invalidateQueries({ queryKey: ["actuationLatency"] });
+    } catch (err) {
+      console.warn("Failed to trigger vibration:", err);
     }
-  }, [isSupported, cleanupConnection, disconnect, handleCharacteristicValueChanged]);
+  }, [queryClient]);
+
+  const value: BluetoothContextValue = {
+    connectionState,
+    error,
+    connect,
+    disconnect,
+    isSupported,
+    setOnBlinkRateChange,
+    latestReading,
+    actuationLatency,
+    triggerVibration,
+    setOnLightLevelChange,
+    setOnLatencyChange,
+  };
 
   return (
-    <BluetoothContext.Provider
-      value={{
-        connectionState,
-        error,
-        connect,
-        disconnect,
-        isSupported,
-        setOnBlinkRateChange,
-        latestReading,
-      }}
-    >
+    <BluetoothContext.Provider value={value}>
       {children}
     </BluetoothContext.Provider>
   );
 }
 
-export function useBluetooth() {
+export function useBluetooth(): BluetoothContextValue {
   const context = useContext(BluetoothContext);
   if (!context) {
-    throw new Error('useBluetooth must be used within BluetoothProvider');
+    throw new Error("useBluetooth must be used within a BluetoothProvider");
   }
   return context;
 }

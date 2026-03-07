@@ -8,12 +8,13 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const DeviceId = IDL.Text;
+export const BlinkRate = IDL.Nat;
 export const UserRole = IDL.Variant({
   'admin' : IDL.Null,
   'user' : IDL.Null,
   'guest' : IDL.Null,
 });
-export const DeviceId = IDL.Text;
 export const Timestamp = IDL.Int;
 export const SleepRecommendation = IDL.Record({
   'suggestedBedtime' : Timestamp,
@@ -21,7 +22,6 @@ export const SleepRecommendation = IDL.Record({
   'analysisWindowStart' : Timestamp,
   'suggestedWakeup' : Timestamp,
 });
-export const BlinkRate = IDL.Nat;
 export const BlinkRateMeasurement = IDL.Record({
   'userPrincipal' : IDL.Opt(IDL.Principal),
   'deviceId' : DeviceId,
@@ -48,6 +48,7 @@ export const VibrationEvent = IDL.Record({
 
 export const idlService = IDL.Service({
   '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+  'addDataPoint' : IDL.Func([DeviceId, BlinkRate], [IDL.Opt(IDL.Float64)], []),
   'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
   'clearOldData' : IDL.Func([DeviceId, Timestamp], [], []),
   'generateSleepRecommendation' : IDL.Func(
@@ -72,6 +73,7 @@ export const idlService = IDL.Service({
     ),
   'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+  'getMostRecentActuationLatency' : IDL.Func([], [IDL.Opt(IDL.Int)], ['query']),
   'getUserProfile' : IDL.Func(
       [IDL.Principal],
       [IDL.Opt(UserProfile)],
@@ -90,19 +92,22 @@ export const idlService = IDL.Service({
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'recordBlinkRate' : IDL.Func([DeviceId, BlinkRate], [], []),
   'recordBlinkSummary' : IDL.Func([DeviceId, BlinkSummary], [], []),
+  'recordEyeClosedTimestamp' : IDL.Func([], [], []),
   'recordVibrationEvent' : IDL.Func([DeviceId], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+  'triggerVibrationAndCalculateLatency' : IDL.Func([], [IDL.Int], []),
 });
 
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const DeviceId = IDL.Text;
+  const BlinkRate = IDL.Nat;
   const UserRole = IDL.Variant({
     'admin' : IDL.Null,
     'user' : IDL.Null,
     'guest' : IDL.Null,
   });
-  const DeviceId = IDL.Text;
   const Timestamp = IDL.Int;
   const SleepRecommendation = IDL.Record({
     'suggestedBedtime' : Timestamp,
@@ -110,7 +115,6 @@ export const idlFactory = ({ IDL }) => {
     'analysisWindowStart' : Timestamp,
     'suggestedWakeup' : Timestamp,
   });
-  const BlinkRate = IDL.Nat;
   const BlinkRateMeasurement = IDL.Record({
     'userPrincipal' : IDL.Opt(IDL.Principal),
     'deviceId' : DeviceId,
@@ -137,6 +141,11 @@ export const idlFactory = ({ IDL }) => {
   
   return IDL.Service({
     '_initializeAccessControlWithSecret' : IDL.Func([IDL.Text], [], []),
+    'addDataPoint' : IDL.Func(
+        [DeviceId, BlinkRate],
+        [IDL.Opt(IDL.Float64)],
+        [],
+      ),
     'assignCallerUserRole' : IDL.Func([IDL.Principal, UserRole], [], []),
     'clearOldData' : IDL.Func([DeviceId, Timestamp], [], []),
     'generateSleepRecommendation' : IDL.Func(
@@ -161,6 +170,11 @@ export const idlFactory = ({ IDL }) => {
       ),
     'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
+    'getMostRecentActuationLatency' : IDL.Func(
+        [],
+        [IDL.Opt(IDL.Int)],
+        ['query'],
+      ),
     'getUserProfile' : IDL.Func(
         [IDL.Principal],
         [IDL.Opt(UserProfile)],
@@ -179,8 +193,10 @@ export const idlFactory = ({ IDL }) => {
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'recordBlinkRate' : IDL.Func([DeviceId, BlinkRate], [], []),
     'recordBlinkSummary' : IDL.Func([DeviceId, BlinkSummary], [], []),
+    'recordEyeClosedTimestamp' : IDL.Func([], [], []),
     'recordVibrationEvent' : IDL.Func([DeviceId], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
+    'triggerVibrationAndCalculateLatency' : IDL.Func([], [IDL.Int], []),
   });
 };
 

@@ -1,43 +1,49 @@
-import { useActor } from '../hooks/useActor';
-import { useInternetIdentity } from '../hooks/useInternetIdentity';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, XCircle, Loader2, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { AlertCircle, CheckCircle2, Loader2, XCircle } from "lucide-react";
+import { useState } from "react";
+import { useActor } from "../hooks/useActor";
+import { useInternetIdentity } from "../hooks/useInternetIdentity";
 
 export default function SmokeTest() {
   const { actor, isFetching: actorFetching } = useActor();
   const { identity, loginStatus } = useInternetIdentity();
   const [testResult, setTestResult] = useState<{
-    status: 'idle' | 'running' | 'pass' | 'fail';
+    status: "idle" | "running" | "pass" | "fail";
     message?: string;
     error?: string;
-  }>({ status: 'idle' });
+  }>({ status: "idle" });
 
   const runSmokeTest = async () => {
-    setTestResult({ status: 'running' });
-    
+    setTestResult({ status: "running" });
+
     try {
       if (!actor) {
-        throw new Error('Actor not initialized');
+        throw new Error("Actor not initialized");
       }
 
       // Test 1: Check if we can call a basic query method
       const role = await actor.getCallerUserRole();
-      
+
       // Test 2: Check if we can get user profile (should return null for new users or actual profile)
       const profile = await actor.getCallerUserProfile();
-      
+
       setTestResult({
-        status: 'pass',
-        message: `Backend connection successful! Role: ${role}, Profile: ${profile ? profile.name : 'Not set'}`
+        status: "pass",
+        message: `Backend connection successful! Role: ${role}, Profile: ${profile ? profile.name : "Not set"}`,
       });
     } catch (error: any) {
       setTestResult({
-        status: 'fail',
-        message: 'Backend call failed',
-        error: error.message || String(error)
+        status: "fail",
+        message: "Backend call failed",
+        error: error.message || String(error),
       });
     }
   };
@@ -56,13 +62,15 @@ export default function SmokeTest() {
       <Card>
         <CardHeader>
           <CardTitle>System Status</CardTitle>
-          <CardDescription>Current state of the application components</CardDescription>
+          <CardDescription>
+            Current state of the application components
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
             <span className="font-medium">Internet Identity</span>
             <div className="flex items-center gap-2">
-              {loginStatus === 'initializing' ? (
+              {loginStatus === "initializing" ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                   <Badge variant="outline">Initializing</Badge>
@@ -124,47 +132,51 @@ export default function SmokeTest() {
         <CardContent className="space-y-4">
           <Button
             onClick={runSmokeTest}
-            disabled={!actor || actorFetching || testResult.status === 'running'}
+            disabled={
+              !actor || actorFetching || testResult.status === "running"
+            }
             className="w-full"
           >
-            {testResult.status === 'running' ? (
+            {testResult.status === "running" ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Running Test...
               </>
             ) : (
-              'Run Smoke Test'
+              "Run Smoke Test"
             )}
           </Button>
 
-          {testResult.status !== 'idle' && (
+          {testResult.status !== "idle" && (
             <div
               className={`p-4 rounded-lg border ${
-                testResult.status === 'pass'
-                  ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900'
-                  : testResult.status === 'fail'
-                  ? 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-900'
-                  : 'bg-muted border-border'
+                testResult.status === "pass"
+                  ? "bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-900"
+                  : testResult.status === "fail"
+                    ? "bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-900"
+                    : "bg-muted border-border"
               }`}
             >
               <div className="flex items-start gap-3">
-                {testResult.status === 'pass' ? (
+                {testResult.status === "pass" ? (
                   <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
-                ) : testResult.status === 'fail' ? (
+                ) : testResult.status === "fail" ? (
                   <XCircle className="h-5 w-5 text-red-600 mt-0.5" />
                 ) : (
                   <Loader2 className="h-5 w-5 animate-spin text-muted-foreground mt-0.5" />
                 )}
                 <div className="flex-1 space-y-2">
                   <p className="font-medium">
-                    {testResult.status === 'pass'
-                      ? 'Test Passed'
-                      : testResult.status === 'fail'
-                      ? 'Test Failed'
-                      : 'Running...'}
+                    {testResult.status === "pass"
+                      ? "Test Passed"
+                      : testResult.status === "fail"
+                        ? "Test Failed"
+                        : "Running..."}
                   </p>
                   {testResult.message && (
-                    <p className="text-sm text-muted-foreground">{testResult.message}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {testResult.message}
+                    </p>
                   )}
                   {testResult.error && (
                     <div className="mt-2">

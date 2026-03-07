@@ -1,4 +1,4 @@
-export type AlertnessState = 'high-alertness' | 'normal' | 'drowsy';
+export type AlertnessState = "high-alertness" | "normal" | "drowsy";
 
 export interface AlertnessStateInfo {
   label: string;
@@ -17,23 +17,25 @@ export interface SchedulePlan {
  * - BPM 10-18 (inclusive): Normal
  * - BPM < 10: Drowsy
  */
-export function deriveAlertnessState(rollingAverageBPM: number): AlertnessStateInfo {
+export function deriveAlertnessState(
+  rollingAverageBPM: number,
+): AlertnessStateInfo {
   if (rollingAverageBPM > 18) {
     return {
-      label: 'State: High Alertness',
-      state: 'high-alertness',
-    };
-  } else if (rollingAverageBPM >= 10) {
-    return {
-      label: 'State: Normal',
-      state: 'normal',
-    };
-  } else {
-    return {
-      label: 'State: Drowsy',
-      state: 'drowsy',
+      label: "State: High Alertness",
+      state: "high-alertness",
     };
   }
+  if (rollingAverageBPM >= 10) {
+    return {
+      label: "State: Normal",
+      state: "normal",
+    };
+  }
+  return {
+    label: "State: Drowsy",
+    state: "drowsy",
+  };
 }
 
 /**
@@ -41,40 +43,40 @@ export function deriveAlertnessState(rollingAverageBPM: number): AlertnessStateI
  */
 export function getSchedulePlanForState(state: AlertnessState): SchedulePlan {
   switch (state) {
-    case 'high-alertness':
+    case "high-alertness":
       return {
-        title: 'Deep Work Schedule',
+        title: "Deep Work Schedule",
         items: [
-          'Focus on complex, cognitively demanding tasks',
-          'Schedule important meetings and decision-making activities',
-          'Tackle challenging projects that require sustained attention',
-          'Optimize this high-alertness window for peak productivity',
-          'Maintain hydration and take brief movement breaks every 90 minutes',
+          "Focus on complex, cognitively demanding tasks",
+          "Schedule important meetings and decision-making activities",
+          "Tackle challenging projects that require sustained attention",
+          "Optimize this high-alertness window for peak productivity",
+          "Maintain hydration and take brief movement breaks every 90 minutes",
         ],
       };
-    
-    case 'normal':
+
+    case "normal":
       return {
-        title: 'Standard Work/Rest Schedule',
+        title: "Standard Work/Rest Schedule",
         items: [
-          'Balance focused work with regular breaks',
-          'Follow the 50-10 rule: 50 minutes work, 10 minutes rest',
-          'Engage in moderate-intensity tasks and routine activities',
-          'Stay hydrated and maintain good posture',
-          'Plan for 7-8 hours of sleep tonight',
+          "Balance focused work with regular breaks",
+          "Follow the 50-10 rule: 50 minutes work, 10 minutes rest",
+          "Engage in moderate-intensity tasks and routine activities",
+          "Stay hydrated and maintain good posture",
+          "Plan for 7-8 hours of sleep tonight",
         ],
       };
-    
-    case 'drowsy':
+
+    case "drowsy":
       return {
-        title: 'Immediate Rest Schedule',
+        title: "Immediate Rest Schedule",
         items: [
-          'Take a 20-minute Nap immediately to restore alertness',
-          'Find a quiet, comfortable space to rest',
-          'Set an alarm to avoid oversleeping',
-          'After nap: light stretching and hydration',
-          'Avoid driving or operating machinery until fully alert',
-          'Consider earlier bedtime tonight for recovery',
+          "Take a 20-minute Nap immediately to restore alertness",
+          "Find a quiet, comfortable space to rest",
+          "Set an alarm to avoid oversleeping",
+          "After nap: light stretching and hydration",
+          "Avoid driving or operating machinery until fully alert",
+          "Consider earlier bedtime tonight for recovery",
         ],
       };
   }

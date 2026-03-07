@@ -1,13 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from "react";
 
-const DEVICE_ID_KEY = 'sleep-tracker-device-id';
+const DEVICE_ID_KEY = "sleep-tracker-device-id";
 
 export function useDeviceId() {
   const [deviceId, setDeviceIdState] = useState<string>(() => {
     try {
-      return localStorage.getItem(DEVICE_ID_KEY) || '';
+      return localStorage.getItem(DEVICE_ID_KEY) || "";
     } catch {
-      return '';
+      return "";
     }
   });
 
@@ -20,7 +20,7 @@ export function useDeviceId() {
         localStorage.removeItem(DEVICE_ID_KEY);
       }
     } catch (error) {
-      console.warn('Failed to persist device ID:', error);
+      console.warn("Failed to persist device ID:", error);
     }
   };
 

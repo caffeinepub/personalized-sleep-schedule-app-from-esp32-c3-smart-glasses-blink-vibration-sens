@@ -47,6 +47,7 @@ export enum UserRole {
     guest = "guest"
 }
 export interface backendInterface {
+    addDataPoint(deviceId: DeviceId, value: BlinkRate): Promise<number | null>;
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     clearOldData(deviceId: DeviceId, thresholdTime: Timestamp): Promise<void>;
     generateSleepRecommendation(deviceId: DeviceId, analysisWindowStart: Timestamp, analysisWindowEnd: Timestamp): Promise<SleepRecommendation>;
@@ -55,12 +56,15 @@ export interface backendInterface {
     getBlinkSummariesInTimeRange(deviceId: DeviceId, startTime: Timestamp, endTime: Timestamp): Promise<Array<BlinkSummary>>;
     getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
+    getMostRecentActuationLatency(): Promise<bigint | null>;
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     getVibrationEvents(deviceId: DeviceId): Promise<Array<VibrationEvent>>;
     getVibrationEventsInTimeRange(deviceId: DeviceId, startTime: Timestamp, endTime: Timestamp): Promise<Array<VibrationEvent>>;
     isCallerAdmin(): Promise<boolean>;
     recordBlinkRate(deviceId: DeviceId, blinkRate: BlinkRate): Promise<void>;
     recordBlinkSummary(deviceId: DeviceId, summary: BlinkSummary): Promise<void>;
+    recordEyeClosedTimestamp(): Promise<void>;
     recordVibrationEvent(deviceId: DeviceId): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
+    triggerVibrationAndCalculateLatency(): Promise<bigint>;
 }

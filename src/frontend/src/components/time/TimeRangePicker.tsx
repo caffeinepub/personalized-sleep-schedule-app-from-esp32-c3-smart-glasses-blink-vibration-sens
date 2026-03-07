@@ -1,40 +1,58 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock } from 'lucide-react';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Clock } from "lucide-react";
 
-export type TimeRange = '6h' | '24h' | '7d' | '30d';
+export type TimeRange = "6h" | "24h" | "7d" | "30d";
 
 interface TimeRangePickerProps {
   value: TimeRange;
   onChange: (range: TimeRange) => void;
 }
 
-export function getTimeRangeTimestamps(range: TimeRange): { start: bigint; end: bigint } {
+export function getTimeRangeTimestamps(range: TimeRange): {
+  start: bigint;
+  end: bigint;
+} {
   const now = Date.now();
   const end = BigInt(now * 1_000_000); // Convert to nanoseconds
-  
+
   let hoursAgo: number;
   switch (range) {
-    case '6h':
+    case "6h":
       hoursAgo = 6;
       break;
-    case '24h':
+    case "24h":
       hoursAgo = 24;
       break;
-    case '7d':
+    case "7d":
       hoursAgo = 24 * 7;
       break;
-    case '30d':
+    case "30d":
       hoursAgo = 24 * 30;
       break;
   }
-  
+
   const start = BigInt((now - hoursAgo * 60 * 60 * 1000) * 1_000_000);
-  
+
   return { start, end };
 }
 
-export default function TimeRangePicker({ value, onChange }: TimeRangePickerProps) {
+export default function TimeRangePicker({
+  value,
+  onChange,
+}: TimeRangePickerProps) {
   return (
     <Card>
       <CardHeader>

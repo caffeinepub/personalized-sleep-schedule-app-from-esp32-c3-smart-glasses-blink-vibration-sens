@@ -1,6 +1,6 @@
-import { Button } from '@/components/ui/button';
-import { useInternetIdentity } from '../../hooks/useInternetIdentity';
-import { Moon, Sparkles } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { Moon, Sparkles } from "lucide-react";
+import { useInternetIdentity } from "../../hooks/useInternetIdentity";
 
 export default function AuthGate() {
   const { login, loginStatus } = useInternetIdentity();
@@ -9,7 +9,7 @@ export default function AuthGate() {
     try {
       await login();
     } catch (error: any) {
-      console.error('Login error:', error);
+      console.error("Login error:", error);
     }
   };
 
@@ -17,8 +17,14 @@ export default function AuthGate() {
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-accent/5 flex flex-col">
       <header className="w-full px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img src="/assets/generated/app-icon.dim_512x512.png" alt="Sleep Tracker" className="h-10 w-10 rounded-lg" />
-          <h1 className="text-xl font-semibold text-foreground">Sleep Tracker</h1>
+          <img
+            src="/assets/generated/app-icon.dim_512x512.png"
+            alt="Sleep Tracker"
+            className="h-10 w-10 rounded-lg"
+          />
+          <h1 className="text-xl font-semibold text-foreground">
+            Sleep Tracker
+          </h1>
         </div>
       </header>
 
@@ -29,24 +35,26 @@ export default function AuthGate() {
               <Sparkles className="h-4 w-4" />
               <span>Personalized Sleep Insights</span>
             </div>
-            
+
             <h2 className="text-4xl md:text-5xl font-bold text-foreground leading-tight">
               Optimize Your Sleep with Smart Glasses
             </h2>
-            
+
             <p className="text-lg text-muted-foreground leading-relaxed">
-              Track your blink rate and movement patterns throughout the day. Get personalized sleep schedule recommendations based on your unique physiological data from ESP32-C3 powered smart glasses.
+              Track your blink rate and movement patterns throughout the day.
+              Get personalized sleep schedule recommendations based on your
+              unique physiological data from ESP32-C3 powered smart glasses.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Button
                 onClick={handleLogin}
-                disabled={loginStatus === 'logging-in'}
+                disabled={loginStatus === "logging-in"}
                 size="lg"
                 className="gap-2"
               >
                 <Moon className="h-5 w-5" />
-                {loginStatus === 'logging-in' ? 'Connecting...' : 'Get Started'}
+                {loginStatus === "logging-in" ? "Connecting..." : "Get Started"}
               </Button>
             </div>
 
@@ -78,8 +86,13 @@ export default function AuthGate() {
       </main>
 
       <footer className="w-full px-6 py-4 text-center text-sm text-muted-foreground border-t border-border/50">
-        © 2026. Built with <span className="text-red-500">♥</span> using{' '}
-        <a href="https://caffeine.ai" target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground transition-colors">
+        © 2026. Built with <span className="text-red-500">♥</span> using{" "}
+        <a
+          href="https://caffeine.ai"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline hover:text-foreground transition-colors"
+        >
           caffeine.ai
         </a>
       </footer>
