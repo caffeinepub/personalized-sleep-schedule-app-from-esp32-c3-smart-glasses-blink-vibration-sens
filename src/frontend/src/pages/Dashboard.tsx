@@ -14,7 +14,6 @@ import TimeRangePicker, {
 import { useBluetooth } from "../contexts/BluetoothContext";
 import { useDeviceId } from "../hooks/useDeviceId";
 import { useLocalBlinkHistory } from "../hooks/useLocalBlinkHistory";
-import { useRollingBlinkRateAverage5Min } from "../hooks/useRollingBlinkRateAverage5Min";
 import {
   type AlertnessStateInfo,
   type SchedulePlan,
@@ -38,6 +37,7 @@ export default function Dashboard() {
     latestReading,
     setOnBlinkRateChange,
     setOnLightLevelChange,
+    totalBlinkCount,
   } = useBluetooth();
 
   const [currentBlinkRate, setCurrentBlinkRate] = useState<number | null>(null);
@@ -54,13 +54,9 @@ export default function Dashboard() {
     totalPoints,
   } = useLocalBlinkHistory();
 
-  // 5-minute rolling average hook
-  const {
-    rollingAverage,
-    hasRecentData,
-    dataPointCount,
-    addDataPoint: addRollingDataPoint,
-  } = useRollingBlinkRateAverage5Min();
+  // Derived metric: total blinks ÷ 5
+  const blinkScore = totalBlinkCount / 5;
+  const hasRecentData = totalBlinkCount > 0;
 
   // Time range for historical analysis
   const [timeRange, setTimeRange] = useState<TimeRange>("24h");
@@ -72,7 +68,7 @@ export default function Dashboard() {
 
   // Current live state (updates continuously)
   const currentStateInfo = hasRecentData
-    ? deriveAlertnessState(rollingAverage)
+    ? deriveAlertnessState(blinkScore)
     : null;
 
   const handleGenerateSchedule = () => {
@@ -87,7 +83,7 @@ export default function Dashboard() {
       setCapturedSchedule({
         stateInfo,
         plan,
-        rollingAverage,
+        rollingAverage: blinkScore,
         capturedAt: Date.now(),
       });
       setIsGenerating(false);
@@ -99,9 +95,6 @@ export default function Dashboard() {
     setOnBlinkRateChange((blinkRate: number) => {
       setCurrentBlinkRate(blinkRate);
 
-      // Add to rolling average (5-minute window)
-      addRollingDataPoint(blinkRate);
-
       // Add to persisted history (localStorage)
       addPersistedDataPoint(blinkRate);
 
@@ -111,7 +104,7 @@ export default function Dashboard() {
         return updated.slice(-100);
       });
     });
-  }, [setOnBlinkRateChange, addRollingDataPoint, addPersistedDataPoint]);
+  }, [setOnBlinkRateChange, addPersistedDataPoint]);
 
   // Set up the light level change handler (VAL: field from ESP32)
   useEffect(() => {
@@ -214,17 +207,15 @@ export default function Dashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                5-Min Rolling Avg
-              </CardTitle>
+              <CardTitle className="text-sm font-medium">Blink Score</CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {hasRecentData ? rollingAverage.toFixed(1) : "--"}
+                {hasRecentData ? blinkScore.toFixed(1) : "--"}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Blinks/min ({dataPointCount} readings)
+                Total blinks ÷ 5 ({totalBlinkCount} blinks)
               </p>
             </CardContent>
           </Card>
@@ -271,9 +262,9 @@ export default function Dashboard() {
         {/* Sleep Schedule Card */}
         <SleepScheduleCard
           currentStateInfo={currentStateInfo}
-          currentRollingAverage={rollingAverage}
+          currentRollingAverage={blinkScore}
           hasRecentData={hasRecentData}
-          dataPointCount={dataPointCount}
+          dataPointCount={totalBlinkCount}
           capturedSchedule={capturedSchedule}
           onGenerate={handleGenerateSchedule}
           isGenerating={isGenerating}

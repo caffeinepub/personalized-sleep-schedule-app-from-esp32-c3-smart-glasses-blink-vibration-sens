@@ -11,22 +11,20 @@ export interface SchedulePlan {
 }
 
 /**
- * Derives the alertness state from the 5-minute rolling average BPM
- * Rules:
- * - BPM > 18: High Alertness
- * - BPM 10-18 (inclusive): Normal
- * - BPM < 10: Drowsy
+ * Derives the alertness state from the blink score (total blinks ÷ 5).
+ * Thresholds:
+ * - Score > 20: High Alertness (many blinks, high activity)
+ * - Score 10–20: Normal
+ * - Score < 10: Drowsy (few blinks detected)
  */
-export function deriveAlertnessState(
-  rollingAverageBPM: number,
-): AlertnessStateInfo {
-  if (rollingAverageBPM > 18) {
+export function deriveAlertnessState(blinkScore: number): AlertnessStateInfo {
+  if (blinkScore > 20) {
     return {
       label: "State: High Alertness",
       state: "high-alertness",
     };
   }
-  if (rollingAverageBPM >= 10) {
+  if (blinkScore >= 10) {
     return {
       label: "State: Normal",
       state: "normal",

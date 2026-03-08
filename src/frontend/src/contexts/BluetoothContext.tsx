@@ -50,6 +50,8 @@ interface BluetoothContextValue {
   triggerVibration: () => Promise<void>;
   /** Register a callback that fires whenever a new VAL: light level reading arrives */
   setOnLightLevelChange: (callback: (value: number) => void) => void;
+  /** Running total of all blinks detected since device connected */
+  totalBlinkCount: number;
 }
 
 interface ConnectOptions {
@@ -89,6 +91,7 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
   const [actuationLatency, setActuationLatency] = useState<number | undefined>(
     undefined,
   );
+  const [totalBlinkCount, setTotalBlinkCount] = useState<number>(0);
 
   const deviceRef = useRef<BluetoothDevice | null>(null);
   const characteristicRef = useRef<BluetoothRemoteGATTCharacteristic | null>(
@@ -216,6 +219,7 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
             if (!isInsideBlinkEventRef.current) {
               isInsideBlinkEventRef.current = true;
               blinkTimestampsRef.current.push({ timestamp: now });
+              setTotalBlinkCount((c) => c + 1);
               if (actorRef.current) {
                 actorRef.current.recordEyeClosedTimestamp().catch(() => {});
               }
@@ -273,6 +277,7 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
 
           if (previousEyeState !== "closed") {
             blinkTimestampsRef.current.push({ timestamp: now });
+            setTotalBlinkCount((c) => c + 1);
             if (actorRef.current) {
               actorRef.current.recordEyeClosedTimestamp().catch(() => {});
             }
@@ -316,6 +321,7 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
             if (!isInsideBlinkEventRef.current) {
               isInsideBlinkEventRef.current = true;
               blinkTimestampsRef.current.push({ timestamp: now });
+              setTotalBlinkCount((c) => c + 1);
               if (actorRef.current) {
                 actorRef.current.recordEyeClosedTimestamp().catch(() => {});
               }
@@ -397,6 +403,7 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     blinkTimestampsRef.current = [];
     currentEyeStateRef.current = "unknown";
     isInsideBlinkEventRef.current = false;
+    setTotalBlinkCount(0);
 
     setBatteryPercentage(undefined);
     setIsCharging(false);
@@ -593,6 +600,7 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     actuationLatency,
     triggerVibration,
     setOnLightLevelChange,
+    totalBlinkCount,
   };
 
   return (
