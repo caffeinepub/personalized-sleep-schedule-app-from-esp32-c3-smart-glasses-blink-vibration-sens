@@ -15,7 +15,6 @@ import { useBluetooth } from "../contexts/BluetoothContext";
 import { useDeviceId } from "../hooks/useDeviceId";
 import { useLocalBlinkHistory } from "../hooks/useLocalBlinkHistory";
 import { useRollingBlinkRateAverage5Min } from "../hooks/useRollingBlinkRateAverage5Min";
-import { useRollingLatencyAverage5Min } from "../hooks/useRollingLatencyAverage5Min";
 import {
   type AlertnessStateInfo,
   type SchedulePlan,
@@ -39,7 +38,6 @@ export default function Dashboard() {
     latestReading,
     setOnBlinkRateChange,
     setOnLightLevelChange,
-    setOnLatencyChange,
   } = useBluetooth();
 
   const [currentBlinkRate, setCurrentBlinkRate] = useState<number | null>(null);
@@ -56,21 +54,13 @@ export default function Dashboard() {
     totalPoints,
   } = useLocalBlinkHistory();
 
-  // 5-minute rolling average hook (blink rate)
+  // 5-minute rolling average hook
   const {
     rollingAverage,
     hasRecentData,
     dataPointCount,
     addDataPoint: addRollingDataPoint,
   } = useRollingBlinkRateAverage5Min();
-
-  // 5-minute rolling average of LAT values from ESP32
-  const {
-    rollingAverageFormatted: latRollingAvgFormatted,
-    hasRecentData: latHasRecentData,
-    dataPointCount: latDataPointCount,
-    addLatencyPoint,
-  } = useRollingLatencyAverage5Min();
 
   // Time range for historical analysis
   const [timeRange, setTimeRange] = useState<TimeRange>("24h");
@@ -136,13 +126,6 @@ export default function Dashboard() {
     });
   }, [setOnLightLevelChange]);
 
-  // Subscribe to LAT: values for the 5-min rolling average
-  useEffect(() => {
-    setOnLatencyChange((latency: number) => {
-      addLatencyPoint(latency);
-    });
-  }, [setOnLatencyChange, addLatencyPoint]);
-
   // Draw simple blink rate chart
   useEffect(() => {
     if (!canvasRef.current || blinkHistory.length === 0) return;
@@ -205,7 +188,7 @@ export default function Dashboard() {
           />
         )}
 
-        {/* Live Metrics — 4-column grid on large screens */}
+        {/* Live Metrics — 5-column grid on large screens */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -229,19 +212,19 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card data-ocid="rolling_avg_lat.card">
+          <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">
-                5-Min Rolling Average
+                5-Min Rolling Avg
               </CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {latHasRecentData ? `${latRollingAvgFormatted}s` : "--"}
+                {hasRecentData ? rollingAverage.toFixed(1) : "--"}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                Mean LAT over 300s ({latDataPointCount} readings)
+                Blinks/min ({dataPointCount} readings)
               </p>
             </CardContent>
           </Card>
@@ -263,7 +246,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Actuation Latency / Drowsiness Status — reads LAT: field directly from BluetoothContext */}
+          {/* Actuation Latency — reads LAT: field directly from BluetoothContext */}
           <ActuationLatencyCard />
         </div>
 

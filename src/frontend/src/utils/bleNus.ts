@@ -65,33 +65,26 @@ export function parseEyeStateFromLight(
 
 /**
  * Parsed result from the ESP32 pipe-delimited BLE string format.
- * Format: "LAT:[float]|VAL:[int]"
+ * Format: "BAT:85|LAT:2050|VAL:450"
  */
 export interface Esp32ParsedData {
-  /** Battery percentage — always null (BAT field removed from protocol) */
-  battery: null;
-  /**
-   * Actuation latency as a float (seconds), or null if not present / malformed.
-   * Stored as a float so callers can format it to 2 decimal places (e.g. 0.00).
-   */
+  /** Battery percentage (0–100), or null if not present / malformed */
+  battery: number | null;
+  /** Actuation latency in milliseconds, or null if not present / malformed */
   latency: number | null;
-  /** Raw light level sensor value (VAL, integer 0–4095), or null if not present / malformed */
+  /** Raw light level sensor value (VAL), or null if not present / malformed */
   value: number | null;
 }
 
 /**
  * Parses the ESP32 pipe-delimited BLE notification string.
- * Format: "LAT:[float]|VAL:[int]"
+ * Format: "BAT:85|LAT:2050|VAL:450"
  *
- * Splits on '|', then extracts:
- *   - LAT: float value → latency (seconds, formatted to 0.00)
- *   - VAL: integer value (0–4095) → value
- *
- * Any BAT: segment is silently ignored.
- * Non-matching or malformed segments return null for that field.
+ * Splits on '|', then extracts numeric values after BAT:, LAT:, and VAL: prefixes.
+ * Non-matching or malformed segments are silently ignored (return null for that field).
  *
  * @param text - The decoded UTF-8 text string from the BLE notification
- * @returns Esp32ParsedData with latency and value fields (battery always null)
+ * @returns Esp32ParsedData with battery, latency, and value fields
  */
 export function parseEsp32PipeFormat(text: string): Esp32ParsedData {
   const result: Esp32ParsedData = { battery: null, latency: null, value: null };
@@ -102,26 +95,28 @@ export function parseEsp32PipeFormat(text: string): Esp32ParsedData {
     for (const segment of segments) {
       const trimmed = segment.trim();
 
-      // LAT:<float> — actuation latency in seconds
-      if (/^LAT:/i.test(trimmed)) {
+      // BAT:<number>
+      if (/^BAT:/i.test(trimmed)) {
+        const numStr = trimmed.slice(4); // everything after "BAT:"
+        const val = Number.parseFloat(numStr);
+        if (!Number.isNaN(val) && val >= 0 && val <= 100) {
+          result.battery = Math.round(val);
+        }
+      } else if (/^LAT:/i.test(trimmed)) {
+        // LAT:<number>
         const numStr = trimmed.slice(4); // everything after "LAT:"
         const val = Number.parseFloat(numStr);
         if (!Number.isNaN(val) && val >= 0) {
-          result.latency = val; // Keep as float — do NOT round
+          result.latency = Math.round(val);
         }
-        continue;
-      }
-
-      // VAL:<int> — raw sensor reading 0–4095
-      if (/^VAL:/i.test(trimmed)) {
+      } else if (/^VAL:/i.test(trimmed)) {
+        // VAL:<number>
         const numStr = trimmed.slice(4); // everything after "VAL:"
         const val = Number.parseFloat(numStr);
         if (!Number.isNaN(val) && val >= 0) {
-          result.value = Math.round(val); // Integer 0–4095
+          result.value = Math.round(val);
         }
       }
-
-      // BAT: segments are intentionally ignored (eliminated from protocol)
     }
   } catch (_err) {
     // Silently ignore parse errors
@@ -132,10 +127,10 @@ export function parseEsp32PipeFormat(text: string): Esp32ParsedData {
 
 /**
  * Returns true if the given text looks like an ESP32 pipe-delimited string.
- * Checks for LAT: or VAL: prefixes (BAT: is no longer part of the protocol).
+ * Checks for at least one of the known prefixes (BAT:, LAT:, VAL:).
  */
 export function isEsp32PipeFormat(text: string): boolean {
-  return /(?:LAT|VAL):/i.test(text);
+  return /(?:BAT|LAT|VAL):/i.test(text);
 }
 
 /**

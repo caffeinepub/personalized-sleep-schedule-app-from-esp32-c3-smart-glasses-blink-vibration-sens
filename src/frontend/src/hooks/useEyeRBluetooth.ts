@@ -3,10 +3,13 @@ import {
   CCCD_UUID,
   NUS_SERVICE_UUID,
   NUS_TX_CHARACTERISTIC_UUID,
+  parseBatteryData,
   parseBlinkRateFromText,
+  parseChargingStatus,
   parseHeartRateBlinkRate,
   parseNusBlinkRate,
 } from "../utils/bleNus";
+import { formatUUID, normalizeUUID } from "../utils/bleUuid";
 
 type ConnectionState = "disconnected" | "connecting" | "connected";
 
@@ -29,6 +32,10 @@ export function useEyeRBluetooth() {
   );
   const [latestReading, setLatestReading] = useState<string | null>(null);
   const [latestBlinkRate, setLatestBlinkRate] = useState<number | null>(null);
+  const [batteryPercentage, setBatteryPercentage] = useState<
+    number | undefined
+  >(undefined);
+  const [isCharging, setIsCharging] = useState<boolean>(false);
 
   const deviceRef = useRef<BluetoothDevice | null>(null);
   const characteristicRef = useRef<BluetoothRemoteGATTCharacteristic | null>(
@@ -58,6 +65,20 @@ export function useEyeRBluetooth() {
       console.log(`Raw notification data: "${decodedText.trim()}"`);
     } catch (err) {
       console.warn("Failed to decode as UTF-8 text:", err);
+    }
+
+    // Parse battery data from the notification
+    if (decodedText) {
+      const batteryData = parseBatteryData(decodedText);
+      if (batteryData !== null) {
+        setBatteryPercentage(batteryData.percentage);
+        setIsCharging(batteryData.isCharging);
+      } else {
+        const chargingStatus = parseChargingStatus(decodedText);
+        if (chargingStatus !== null) {
+          setIsCharging(chargingStatus);
+        }
+      }
     }
 
     // Parse blink rate from decoded text
@@ -138,6 +159,8 @@ export function useEyeRBluetooth() {
     setConnectionState("disconnected");
     setLatestReading(null);
     setLatestBlinkRate(null);
+    setBatteryPercentage(undefined);
+    setIsCharging(false);
   }, [cleanupConnection]);
 
   // Monitor GATT connection status
@@ -270,7 +293,9 @@ export function useEyeRBluetooth() {
   );
 
   const connect = useCallback(
-    async (_options: ConnectOptions = {}) => {
+    async (options: ConnectOptions = {}) => {
+      const { characteristicUUID = NUS_TX_CHARACTERISTIC_UUID } = options;
+
       if (!isSupported || !navigator.bluetooth) {
         setError("Web Bluetooth is not supported in this browser.");
         return;
@@ -302,7 +327,11 @@ export function useEyeRBluetooth() {
       setConnectionState("connecting");
       notificationsEnabledRef.current = false;
 
-      // (No battery state to reset)
+      // Reset battery state on new connection
+      setBatteryPercentage(undefined);
+      setIsCharging(false);
+
+      const _normalizedCharUUID = normalizeUUID(characteristicUUID);
 
       try {
         if (currentAttemptToken !== attemptTokenRef.current) {
@@ -458,5 +487,7 @@ export function useEyeRBluetooth() {
     isSupported,
     latestReading,
     latestBlinkRate,
+    batteryPercentage,
+    isCharging,
   };
 }

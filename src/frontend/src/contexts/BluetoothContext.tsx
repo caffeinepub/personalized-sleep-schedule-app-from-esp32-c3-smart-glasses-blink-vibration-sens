@@ -20,7 +20,9 @@ import {
   NUS_SERVICE_UUID,
   NUS_TX_CHARACTERISTIC_UUID,
   isEsp32PipeFormat,
+  parseBatteryData,
   parseBlinkRateFromText,
+  parseChargingStatus,
   parseEsp32PipeFormat,
   parseEyeStateFromLight,
   parseEyeStateToken,
@@ -40,17 +42,14 @@ interface BluetoothContextValue {
   onBlinkRateChange?: (blinkRate: number) => void;
   setOnBlinkRateChange: (callback: (blinkRate: number) => void) => void;
   latestReading: string | null;
-  /**
-   * Most recent actuation latency as a float (seconds) parsed from LAT: field.
-   * undefined if not yet received. Display with toFixed(2) for 0.00 format.
-   */
+  batteryPercentage: number | undefined;
+  isCharging: boolean;
+  /** Most recent actuation latency (ms) parsed from LAT: field, or undefined if not yet received */
   actuationLatency: number | undefined;
   /** Sends a vibration trigger BLE command and records actuation latency on the backend. */
   triggerVibration: () => Promise<void>;
   /** Register a callback that fires whenever a new VAL: light level reading arrives */
   setOnLightLevelChange: (callback: (value: number) => void) => void;
-  /** Register a callback that fires whenever a new LAT: latency value arrives (float, seconds) */
-  setOnLatencyChange: (callback: (latency: number) => void) => void;
 }
 
 interface ConnectOptions {
@@ -83,6 +82,10 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     () => "bluetooth" in navigator && navigator.bluetooth !== undefined,
   );
   const [latestReading, setLatestReading] = useState<string | null>(null);
+  const [batteryPercentage, setBatteryPercentage] = useState<
+    number | undefined
+  >(undefined);
+  const [isCharging, setIsCharging] = useState<boolean>(false);
   const [actuationLatency, setActuationLatency] = useState<number | undefined>(
     undefined,
   );
@@ -97,9 +100,6 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     ((blinkRate: number) => void) | undefined
   >(undefined);
   const onLightLevelChangeRef = useRef<((value: number) => void) | undefined>(
-    undefined,
-  );
-  const onLatencyChangeRef = useRef<((latency: number) => void) | undefined>(
     undefined,
   );
   const notificationsEnabledRef = useRef<boolean>(false);
@@ -145,13 +145,6 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  const setOnLatencyChange = useCallback(
-    (callback: (latency: number) => void) => {
-      onLatencyChangeRef.current = callback;
-    },
-    [],
-  );
-
   const classifyEyeState = useCallback((lightLevel: number): EyeState => {
     if (lightLevel < EYES_CLOSED_MAX) {
       return "closed";
@@ -185,19 +178,20 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
       const now = Date.now();
 
       // -----------------------------------------------------------------------
-      // ESP32 pipe-delimited format: "LAT:[float]|VAL:[int]"
+      // ESP32 pipe-delimited format: "BAT:85|LAT:2050|VAL:450"
       // Handle this format first — it takes priority over legacy parsers.
       // -----------------------------------------------------------------------
       if (decodedText && isEsp32PipeFormat(decodedText)) {
         const parsed = parseEsp32PipeFormat(decodedText);
 
-        // Update actuation latency from LAT: field (float, seconds)
+        // Update battery from BAT: field
+        if (parsed.battery !== null) {
+          setBatteryPercentage(parsed.battery);
+        }
+
+        // Update actuation latency from LAT: field
         if (parsed.latency !== null) {
           setActuationLatency(parsed.latency);
-          // Fire rolling-average callback with the raw LAT value
-          if (onLatencyChangeRef.current) {
-            onLatencyChangeRef.current(parsed.latency);
-          }
         }
 
         // Process VAL: field for blink detection and light level chart
@@ -252,6 +246,20 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
       // -----------------------------------------------------------------------
       // Legacy parsing path (non-pipe-delimited formats)
       // -----------------------------------------------------------------------
+
+      // Parse battery data from the notification
+      if (decodedText) {
+        const batteryData = parseBatteryData(decodedText);
+        if (batteryData !== null) {
+          setBatteryPercentage(batteryData.percentage);
+          setIsCharging(batteryData.isCharging);
+        } else {
+          const chargingStatus = parseChargingStatus(decodedText);
+          if (chargingStatus !== null) {
+            setIsCharging(chargingStatus);
+          }
+        }
+      }
 
       let newEyeState: EyeState = "unknown";
 
@@ -390,6 +398,8 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     currentEyeStateRef.current = "unknown";
     isInsideBlinkEventRef.current = false;
 
+    setBatteryPercentage(undefined);
+    setIsCharging(false);
     setActuationLatency(undefined);
   }, [cleanupConnection]);
 
@@ -578,10 +588,11 @@ export function BluetoothProvider({ children }: { children: React.ReactNode }) {
     isSupported,
     setOnBlinkRateChange,
     latestReading,
+    batteryPercentage,
+    isCharging,
     actuationLatency,
     triggerVibration,
     setOnLightLevelChange,
-    setOnLatencyChange,
   };
 
   return (
